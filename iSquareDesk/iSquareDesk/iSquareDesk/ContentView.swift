@@ -52,9 +52,9 @@ enum SortOrder {
 
 struct ContentView: View {
     @State private var isPlaying = false
-    @State private var currentTime: Double = 57
-    @State private var seekTime: Double = 57 // Time position controlled by seekbar
-    @State private var duration: Double = 334 // 5:34 in seconds
+    @State private var currentTime: Double = 0
+    @State private var seekTime: Double = 0 // Time position controlled by seekbar
+    @State private var duration: Double = 0
     @State private var showingSettings = false
     @State private var pitch: Double = 0
     @State private var tempo: Double = 125
