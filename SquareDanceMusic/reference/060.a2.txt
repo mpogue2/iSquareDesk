@@ -1,0 +1,48 @@
+ 1, Single Wheel
+ 2, Inroll Circulate
+ 3, Slip
+ 4, Scoot and Weave
+ 5.a, Split Counter Rotate
+ 5.b, Box Counter Rotate
+ 6, Swing
+ 7, Swing and Mix
+ 8, Trade Circulate (from ocean waves)
+ 9, Motivate
+10, Switch the Wave
+11, Pass and Roll
+12, Scoot Chain Thru
+13, Slide
+14, Recycle (facing couples)
+15, Spin the Windmill
+16, Outroll Circulate
+17, Switch to a Diamond (from waves only)
+18, Hourglass Circulate
+19, Cut the Hourglass
+20, Flip the Hourglass
+21, Pass and Roll Your Neighbor
+22, Trade Circulate (from two faced lines)
+23.a, Zig Zag
+23.b, Zag Zig
+24, Checkmate the Column
+25, Mini Busy
+26, Slither
+27, Trail Off
+28, Remake Family
+28.a, Remake
+28.b, Grand Remake
+28.c, Remake The Thar
+29, Switch to an Hourglass (from parallel waves only)
+30.a, Split Transfer
+30.b, Box Transfer
+31, Diamond Chain Thru
+32, Peel and Trail (from completed double pass thru)
+33, Peel and Trail (from columns)
+34, Transfer and (Anything)
+35, All 4 Couples/All 8 Concept, such as:
+35.b, All 4 Couples Star Thru
+35.a, All 4 Couples Right and Left Thru
+35.c, All 4 Couples Chase Right
+35.d, All 8 Swing Thru
+35.e, All 8 Switch the Wave
+35.f, All 8 Walk and Dodge
+35.g, All 8 Mix

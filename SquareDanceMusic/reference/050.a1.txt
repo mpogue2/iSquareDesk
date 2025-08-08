@@ -1,0 +1,55 @@
+ 1, Belles and Beaus (to name dancers)
+ 2, Brace Thru (formerly Half Breed Thru)
+ 3, Cross Trail Thru
+ 4, Triple Trade
+ 5, Triple Scoot
+ 6, Grand Follow Your Neighbor
+ 7, Quarter Thru
+ 8, Wheel Thru
+ 9, Turn and Deal (2-faced lines, lines facing out)
+10.a, Pass In
+10.b, Pass Out
+11, Chain Reaction (1/4 tag)
+12, Mix
+13, Lockit
+14.a, Right Roll to a Wave
+14.b, Left Roll to a Wave
+15, Cast a Shadow
+16, Six-Two Acey-Deucey
+17, Clover and (Anything)
+18, Turn and Deal (ocean waves and other lines)
+19.a, Quarter In
+19.b, Quarter Out
+20, Cross Over Circulate (two faced lines)
+21, Partner Tag
+22, Partner Hinge
+23, Horseshoe Turn
+24, Pass the Sea
+25, Split Square Thru
+26, Step and Slide
+27, Transfer the Column
+28, Cross Over Circulate (ocean waves and other lines)
+29, Swap Around
+30, Explode the Line
+31, As Couples Concept
+32, Ends Bend
+33, Square Chain Thru
+34, Scoot and Dodge
+35, Double Star Thru
+36, Left Wheel Thru
+37, (Anything) and Cross
+38, (Named Dancers) Cross
+39, Fractional Tops
+40, Three Quarter Thru
+41, Triple Star Thru
+42, Cycle and Wheel
+43, Grand Quarter Thru
+44, Grand Three Quarter Thru
+45, Explode and (Anything)
+46, Pair Off
+47, Reverse Swap Around
+48, Cross Clover and (Anything)
+49, Any Hand Concept
+50, Split Square Chain Thru
+51.a, Double Cross
+51.b, Triple Cross
