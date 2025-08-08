@@ -13,6 +13,7 @@ struct SettingsView: View {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? ""
         return documentsPath + "/SquareDanceMusic"
     }()
+    @AppStorage("musicFolderURL") private var musicFolderURL = ""
     @Environment(\.dismiss) private var dismiss
     @State private var showingFolderPicker = false
     @State private var showingAlert = false
@@ -93,15 +94,19 @@ struct SettingsView: View {
             return
         }
         
-        defer {
-            url.stopAccessingSecurityScopedResource()
-        }
-        
         // Check if the folder contains a .squaredesk subfolder
         let squaredeskURL = url.appendingPathComponent(".squaredesk")
         
         var isDirectory: ObjCBool = false
         if fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory) && isDirectory.boolValue {
+            // Store the security-scoped URL data for persistent access
+            do {
+                let bookmarkData = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+                musicFolderURL = bookmarkData.base64EncodedString()
+            } catch {
+                print("Failed to create bookmark: \(error)")
+            }
+            
             // Update the music folder path to the parent folder that contains .squaredesk
             musicFolderPath = url.path
             alertMessage = "Music folder updated successfully! The song list will refresh."
@@ -110,6 +115,7 @@ struct SettingsView: View {
             // Post notification to refresh song list
             NotificationCenter.default.post(name: NSNotification.Name("RefreshSongList"), object: nil)
         } else {
+            url.stopAccessingSecurityScopedResource()
             alertMessage = "Selected folder must contain a '.squaredesk' subfolder."
             showingAlert = true
         }

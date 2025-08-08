@@ -66,6 +66,7 @@ struct ContentView: View {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? ""
         return documentsPath + "/SquareDanceMusic"
     }()
+    @AppStorage("musicFolderURL") private var musicFolderURL: String = ""
     @State private var songs: [Song] = []
     @State private var sortColumn: SortColumn = .type
     @State private var sortOrder: SortOrder = .ascending
@@ -78,6 +79,7 @@ struct ContentView: View {
     @State private var currentSongPath: String = ""
     @State private var audioTimer: Timer?
     @State private var isUserSeeking: Bool = false
+    @State private var securityScopedURL: URL?
     
     var sortedSongs: [Song] {
         songs.sorted { song1, song2 in
@@ -355,6 +357,7 @@ struct ContentView: View {
             SettingsView()
         }
         .onAppear {
+            establishSecurityScopedAccess()
             loadSongs()
             uiUpdate() // Initial update
             
@@ -364,10 +367,19 @@ struct ContentView: View {
             }
         }
         .onChange(of: musicFolder) { _, _ in
+            establishSecurityScopedAccess()
+            loadSongs()
+        }
+        .onChange(of: musicFolderURL) { _, _ in
+            establishSecurityScopedAccess()
             loadSongs()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshSongList"))) { _ in
+            establishSecurityScopedAccess()
             loadSongs()
+        }
+        .onDisappear {
+            stopSecurityScopedAccess()
         }
     }
     
@@ -420,17 +432,7 @@ struct ContentView: View {
         let fileManager = FileManager.default
         let musicURL = URL(fileURLWithPath: musicFolder)
         
-        do {
-            scanDirectoryRecursively(url: musicURL, fileManager: fileManager)
-        } catch {
-            print("Error reading music folder: \(error)")
-            // Add some sample songs for testing
-            songs = [
-                Song(type: "sample", title: "Sample Song 1"),
-                Song(type: "sample", title: "Sample Song 2"),
-                Song(type: "test", title: "Test Track")
-            ]
-        }
+        scanDirectoryRecursively(url: musicURL, fileManager: fileManager)
     }
     
     func loadSong(_ song: Song) {
@@ -451,14 +453,63 @@ struct ContentView: View {
     func loadAudioFile(for song: Song) {
         // Construct the file path based on song type and title
         let fileName = song.title + (song.type == "xtras" ? ".m4a" : ".mp3")
-        let filePath = musicFolder + "/\(song.type)/\(fileName)"
-        currentSongPath = filePath
         
-        // Create URL from file path
-        guard let url = URL(string: "file://" + filePath) else {
-            print("Invalid file path: \(filePath)")
+        // Try to use security-scoped URL first (for iCloud folders)
+        if let url = getSecurityScopedURL() {
+            let audioURL = url.appendingPathComponent(song.type).appendingPathComponent(fileName)
+            loadAudioFromURL(audioURL, fileName: fileName)
+        } else {
+            // Fall back to local file path
+            let filePath = musicFolder + "/\(song.type)/\(fileName)"
+            currentSongPath = filePath
+            
+            guard let url = URL(string: "file://" + filePath) else {
+                print("Invalid file path: \(filePath)")
+                return
+            }
+            
+            loadAudioFromURL(url, fileName: fileName)
+        }
+    }
+    
+    func establishSecurityScopedAccess() {
+        // Stop any existing security-scoped access first
+        stopSecurityScopedAccess()
+        
+        guard !musicFolderURL.isEmpty,
+              let bookmarkData = Data(base64Encoded: musicFolderURL) else {
             return
         }
+        
+        do {
+            var isStale = false
+            let url = try URL(resolvingBookmarkData: bookmarkData, options: [], relativeTo: nil, bookmarkDataIsStale: &isStale)
+            
+            if url.startAccessingSecurityScopedResource() {
+                securityScopedURL = url
+                print("Successfully established security-scoped access to: \(url.path)")
+            } else {
+                print("Failed to start accessing security-scoped resource")
+            }
+        } catch {
+            print("Error resolving bookmark: \(error)")
+        }
+    }
+    
+    func getSecurityScopedURL() -> URL? {
+        return securityScopedURL
+    }
+    
+    func stopSecurityScopedAccess() {
+        if let url = securityScopedURL {
+            url.stopAccessingSecurityScopedResource()
+            securityScopedURL = nil
+            print("Stopped accessing security-scoped resource")
+        }
+    }
+    
+    func loadAudioFromURL(_ url: URL, fileName: String) {
+        currentSongPath = url.path
         
         do {
             // Create and configure audio player
