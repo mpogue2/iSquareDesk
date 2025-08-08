@@ -81,11 +81,20 @@ struct ContentView: View {
     }
     
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack {
+            VStack(spacing: 0) {
+                // Top header with white space
+                HStack {
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+                .padding(.bottom, 10)
+            
             // Top half: Controls
             HStack(spacing: 20) {
             // Left side: About Time section
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack {
                     Text(currentSongTitle)
                         .font(.system(size: 28, weight: .medium))
@@ -206,12 +215,6 @@ struct ContentView: View {
                                 .foregroundColor(.blue)
                                 .offset(y: 15)
                         }
-                        
-                        Button(action: { showingSettings = true }) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.gray)
-                        }
                     }
                 }
                 
@@ -286,6 +289,22 @@ struct ContentView: View {
                 .listStyle(PlainListStyle())
             }
             .frame(height: UIScreen.main.bounds.height / 2)
+            }
+            
+            // Gear icon overlay in bottom right corner
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.trailing, 20)
+                    .padding(.bottom, 20)
+                }
+            }
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
