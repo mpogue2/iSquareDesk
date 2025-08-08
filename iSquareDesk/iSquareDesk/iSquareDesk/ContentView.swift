@@ -79,8 +79,8 @@ struct ContentView: View {
                 
                 Spacer()
             }
-            .frame(width: 400)
-            .padding(.leading, 20)
+            .frame(width: 550)
+            .padding(.leading, 10)
             
             // Right side: All controls
             VStack(spacing: 20) {
@@ -137,7 +137,7 @@ struct ContentView: View {
                 
                 Spacer()
             }
-            .padding(.trailing, 20)
+            .padding(.trailing, 10)
         }
         .padding(.top, 20)
         .sheet(isPresented: $showingSettings) {

@@ -25,14 +25,14 @@ struct CircularKnob: View {
     
     var body: some View {
         HStack(spacing: 8) {
-            // Label on the left
+            // Label to the left of the knob
             Text(label)
                 .font(.caption)
                 .foregroundColor(.primary)
                 .fontWeight(.medium)
-                .frame(width: 20, alignment: .center)
+                .frame(width: 15, alignment: .center)
             
-            // Knob in the center
+            // Knob
             ZStack {
                 // Background circle
                 Circle()
@@ -80,12 +80,6 @@ struct CircularKnob: View {
                         value = range.lowerBound + normalizedValue * (range.upperBound - range.lowerBound)
                     }
             )
-            
-            // Value on the right
-            Text("\(Int(value))")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .frame(width: 20, alignment: .center)
         }
         .frame(height: 40)
     }
