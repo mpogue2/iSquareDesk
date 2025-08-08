@@ -213,6 +213,9 @@ struct ContentView: View {
                                 audioProcessor.pitchSemitones = Float(newValue)
                             }
                         VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125)
+                            .onChange(of: tempo) { _, newValue in
+                                audioProcessor.tempoBPM = Float(newValue)
+                            }
                         VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0)
                             .onChange(of: volume) { _, newValue in
                                 audioProcessor.volume = Float(newValue)
@@ -374,6 +377,7 @@ struct ContentView: View {
             // Set initial audio processor states
             audioProcessor.forceMono = forceMono
             audioProcessor.pitchSemitones = Float(pitch)
+            audioProcessor.tempoBPM = Float(tempo)
             
             // Start timer for UI updates
             Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
@@ -473,6 +477,10 @@ struct ContentView: View {
         isPlaying = false
         currentTime = 0
         seekTime = 0
+        
+        // Reset tempo to 125 BPM (assuming all songs are 125 BPM)
+        tempo = 125.0
+        audioProcessor.tempoBPM = 125.0
         
         // Load the audio file
         loadAudioFile(for: song)

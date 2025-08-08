@@ -51,6 +51,17 @@ class AudioProcessor: ObservableObject {
         }
     }
     
+    // Tempo control (in BPM, range 110-140, assuming original is 125 BPM)
+    private let originalBPM: Float = 125.0
+    var tempoBPM: Float = 125.0 {
+        didSet {
+            // Calculate rate multiplier (1.0 = original speed, 0.5 = half speed, 2.0 = double speed)
+            let rateMultiplier = tempoBPM / originalBPM
+            pitchNode.rate = rateMultiplier
+            print("Tempo changed to \(tempoBPM) BPM (rate: \(rateMultiplier)x)")
+        }
+    }
+    
     init() {
         setupAudioSession()
         setupAudioEngine()
@@ -73,7 +84,7 @@ class AudioProcessor: ObservableObject {
         
         // Initialize pitch node settings
         pitchNode.pitch = 0.0 // No pitch change initially
-        pitchNode.rate = 1.0  // Normal playback rate (we'll control tempo separately)
+        pitchNode.rate = 1.0  // Normal playback rate initially (125 BPM = 1.0x rate)
         
         // Connect the initial audio chain
         buildAudioGraph()
