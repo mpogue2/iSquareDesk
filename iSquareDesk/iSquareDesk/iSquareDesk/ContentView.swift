@@ -101,34 +101,35 @@ struct ContentView: View {
                     }
                     
                     // Clock section
-                    VStack(spacing: 8) {
+                    VStack(spacing: 12) {
                         ZStack {
                             Circle()
                                 .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 60, height: 60)
+                                .frame(width: 90, height: 90)
                             
                             // Clock hands
                             Rectangle()
                                 .fill(Color.black)
-                                .frame(width: 2, height: 20)
-                                .offset(y: -10)
+                                .frame(width: 2, height: 30)
+                                .offset(y: -15)
                                 .rotationEffect(.degrees(-60))
                             
                             Rectangle()
                                 .fill(Color.black)
-                                .frame(width: 2, height: 25)
-                                .offset(y: -12.5)
+                                .frame(width: 2, height: 35)
+                                .offset(y: -17.5)
                                 .rotationEffect(.degrees(60))
+                            
+                            // Time overlay on clock face
+                            Text("2:50")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.blue)
+                                .offset(y: 15)
                         }
-                        
-                        Text("2:50\nAM")
-                            .font(.system(size: 12))
-                            .foregroundColor(.blue)
-                            .multilineTextAlignment(.center)
                         
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape.fill")
-                                .font(.system(size: 18))
+                                .font(.system(size: 20))
                                 .foregroundColor(.gray)
                         }
                     }
