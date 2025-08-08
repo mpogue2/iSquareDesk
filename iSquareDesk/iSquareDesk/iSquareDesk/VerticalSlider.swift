@@ -12,12 +12,14 @@ struct VerticalSlider: View {
     let range: ClosedRange<Double>
     let label: String
     let showMax: Bool
+    let defaultValue: Double
     
-    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false) {
+    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil) {
         self._value = value
         self.range = range
         self.label = label
         self.showMax = showMax
+        self.defaultValue = defaultValue ?? range.lowerBound
     }
     
     var displayValue: String {
@@ -70,6 +72,9 @@ struct VerticalSlider: View {
                                     value = min(max(newValue, range.lowerBound), range.upperBound)
                                 }
                         )
+                        .onTapGesture(count: 2) {
+                            value = defaultValue
+                        }
                 }
                 .frame(maxWidth: .infinity)
             }

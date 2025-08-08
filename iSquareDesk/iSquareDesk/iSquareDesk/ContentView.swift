@@ -151,9 +151,9 @@ struct ContentView: View {
                 HStack(spacing: 20) {
                     // Vertical sliders
                     HStack(spacing: 18) {
-                        VerticalSlider(value: $pitch, in: -12...12, label: "Pitch")
-                        VerticalSlider(value: $tempo, in: 80...150, label: "Tempo")
-                        VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true)
+                        VerticalSlider(value: $pitch, in: -5...5, label: "Pitch", defaultValue: 0)
+                        VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125)
+                        VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0)
                     }
                     
                     // Circular knobs (B/M/T)
