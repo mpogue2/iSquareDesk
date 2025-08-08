@@ -61,7 +61,10 @@ struct ContentView: View {
     @State private var bass: Double = 0
     @State private var mid: Double = 0
     @State private var treble: Double = 0
-    @AppStorage("musicFolderPath") private var musicFolder: String = "/Users/mpogue/ipad_squaredesk/SquareDanceMusic"
+    @AppStorage("musicFolderPath") private var musicFolder: String = {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? ""
+        return documentsPath + "/SquareDanceMusic"
+    }()
     @State private var songs: [Song] = []
     @State private var sortColumn: SortColumn = .type
     @State private var sortOrder: SortOrder = .ascending
@@ -328,6 +331,9 @@ struct ContentView: View {
             }
         }
         .onChange(of: musicFolder) { _, _ in
+            loadSongs()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshSongList"))) { _ in
             loadSongs()
         }
     }

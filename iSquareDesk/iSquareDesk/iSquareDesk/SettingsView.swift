@@ -6,10 +6,17 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    @AppStorage("musicFolderPath") private var musicFolderPath = "/Users/mpogue/ipad_squaredesk/SquareDanceMusic"
+    @AppStorage("musicFolderPath") private var musicFolderPath = {
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? ""
+        return documentsPath + "/SquareDanceMusic"
+    }()
     @Environment(\.dismiss) private var dismiss
+    @State private var showingFolderPicker = false
+    @State private var showingAlert = false
+    @State private var alertMessage = ""
     
     var body: some View {
         NavigationView {
@@ -26,17 +33,10 @@ struct SettingsView: View {
                             .background(Color.gray.opacity(0.1))
                             .cornerRadius(8)
                         
-                        HStack {
-                            Button(action: selectMusicFolder) {
-                                Label("Select Folder", systemImage: "folder")
-                            }
-                            .buttonStyle(.borderedProminent)
-                            
-                            Button(action: createSampleFolder) {
-                                Label("Create Sample", systemImage: "plus.circle")
-                            }
-                            .buttonStyle(.bordered)
+                        Button(action: { showingFolderPicker = true }) {
+                            Label("Select Folder", systemImage: "folder")
                         }
+                        .buttonStyle(.borderedProminent)
                         
                         Text("Future versions will support selecting folders from iCloud Drive")
                             .font(.caption)
@@ -72,50 +72,76 @@ struct SettingsView: View {
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .sheet(isPresented: $showingFolderPicker) {
+            DocumentPicker(onFolderSelected: selectMusicFolder)
+        }
+        .alert("Folder Selection", isPresented: $showingAlert) {
+            Button("OK") { }
+        } message: {
+            Text(alertMessage)
+        }
     }
     
-    func selectMusicFolder() {
-        // For now, the path is hardcoded
-        // In future versions, we'll use UIDocumentPickerViewController
-        // to allow selecting folders from iCloud Drive
-    }
-    
-    func createSampleFolder() {
+    func selectMusicFolder(url: URL) {
         let fileManager = FileManager.default
-        let sampleMusicPath = musicFolderPath
         
-        do {
-            // Create main folder if it doesn't exist
-            try fileManager.createDirectory(atPath: sampleMusicPath, withIntermediateDirectories: true, attributes: nil)
+        // Start accessing the security-scoped resource
+        guard url.startAccessingSecurityScopedResource() else {
+            alertMessage = "Unable to access the selected folder."
+            showingAlert = true
+            return
+        }
+        
+        defer {
+            url.stopAccessingSecurityScopedResource()
+        }
+        
+        // Check if the folder contains a .squaredesk subfolder
+        let squaredeskURL = url.appendingPathComponent(".squaredesk")
+        
+        var isDirectory: ObjCBool = false
+        if fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory) && isDirectory.boolValue {
+            // Update the music folder path to the .squaredesk folder
+            musicFolderPath = squaredeskURL.path
+            alertMessage = "Music folder updated successfully! The song list will refresh."
+            showingAlert = true
             
-            // Create sample subfolders with sample files
-            let subfolders = ["Country", "Pop", "Rock", "Square Dance"]
-            let sampleFiles = [
-                "Country": ["Country Song 1.mp3", "Country Song 2.m4a", "Western Swing.mp3"],
-                "Pop": ["Pop Hit 1.mp3", "Dance Track.m4a", "Chart Topper.mp3"],
-                "Rock": ["Rock Anthem.mp3", "Classic Rock.m4a", "Heavy Metal.mp3"],
-                "Square Dance": ["Do Si Do.mp3", "Promenade All.m4a", "Allemande Left.mp3", "Circle Left.mp3"]
-            ]
-            
-            for subfolder in subfolders {
-                let subfolderPath = sampleMusicPath + "/" + subfolder
-                try fileManager.createDirectory(atPath: subfolderPath, withIntermediateDirectories: true, attributes: nil)
-                
-                // Create empty sample files
-                if let files = sampleFiles[subfolder] {
-                    for fileName in files {
-                        let filePath = subfolderPath + "/" + fileName
-                        if !fileManager.fileExists(atPath: filePath) {
-                            let sampleData = "Sample audio file content".data(using: .utf8)!
-                            fileManager.createFile(atPath: filePath, contents: sampleData, attributes: nil)
-                        }
-                    }
-                }
-            }
-            
-            print("Sample music folder created successfully at: \(sampleMusicPath)")
-        } catch {
-            print("Error creating sample folder: \(error)")
+            // Post notification to refresh song list
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshSongList"), object: nil)
+        } else {
+            alertMessage = "Selected folder must contain a '.squaredesk' subfolder."
+            showingAlert = true
+        }
+    }
+}
+
+struct DocumentPicker: UIViewControllerRepresentable {
+    let onFolderSelected: (URL) -> Void
+    
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        picker.shouldShowFileExtensions = true
+        return picker
+    }
+    
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentPicker
+        
+        init(_ parent: DocumentPicker) {
+            self.parent = parent
+        }
+        
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            parent.onFolderSelected(url)
         }
     }
 }
