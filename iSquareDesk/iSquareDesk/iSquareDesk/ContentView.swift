@@ -66,6 +66,10 @@ struct ContentView: View {
     @State private var sortColumn: SortColumn = .type
     @State private var sortOrder: SortOrder = .ascending
     @State private var currentSongTitle: String = "About Time"
+    @State private var currentHour: Double = 0
+    @State private var currentMinute: Double = 0 
+    @State private var currentSecond: Double = 0
+    @State private var clockTime: String = "12:00"
     
     var sortedSongs: [Song] {
         songs.sorted { song1, song2 in
@@ -81,8 +85,9 @@ struct ContentView: View {
     }
     
     var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
+        GeometryReader { geometry in
+            ZStack {
+                VStack(spacing: 0) {
                 // Top header with white space
                 HStack {
                     Spacer()
@@ -92,7 +97,8 @@ struct ContentView: View {
                 .padding(.bottom, 10)
             
             // Top half: Controls
-            HStack(spacing: 20) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: geometry.size.width > 1000 ? 20 : 10) {
             // Left side: About Time section
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
@@ -151,7 +157,7 @@ struct ContentView: View {
                 
                 Spacer()
             }
-            .frame(width: 550)
+            .frame(width: min(550, geometry.size.width * 0.45))
             .padding(.leading, 10)
             
             // Right side: All controls
@@ -177,43 +183,43 @@ struct ContentView: View {
                         ZStack {
                             Circle()
                                 .stroke(Color.black, lineWidth: 2)
-                                .frame(width: 90, height: 90)
+                                .frame(width: 112.5, height: 112.5)
                             
                             // Hour tick marks
                             ForEach(0..<12) { hour in
                                 Rectangle()
                                     .fill(Color.black)
                                     .frame(width: 1, height: 8)
-                                    .offset(y: -41)
+                                    .offset(y: -51.25)
                                     .rotationEffect(.degrees(Double(hour) * 30))
                             }
                             
                             // Hour hand
                             Rectangle()
                                 .fill(Color.black)
-                                .frame(width: 2, height: 30)
-                                .offset(y: -15)
-                                .rotationEffect(.degrees(-60))
+                                .frame(width: 2, height: 37.5)
+                                .offset(y: -18.75)
+                                .rotationEffect(.degrees(currentHour * 30))
                             
                             // Minute hand
                             Rectangle()
                                 .fill(Color.black)
-                                .frame(width: 2, height: 35)
-                                .offset(y: -17.5)
-                                .rotationEffect(.degrees(60))
+                                .frame(width: 2, height: 43.75)
+                                .offset(y: -21.875)
+                                .rotationEffect(.degrees(currentMinute * 6))
                             
                             // Second hand (red)
                             Rectangle()
                                 .fill(Color.red)
-                                .frame(width: 1, height: 38)
-                                .offset(y: -19)
-                                .rotationEffect(.degrees(180))
+                                .frame(width: 1, height: 47.5)
+                                .offset(y: -23.75)
+                                .rotationEffect(.degrees(currentSecond * 6))
                             
                             // Time overlay on clock face
-                            Text("2:50")
+                            Text(clockTime)
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundColor(.blue)
-                                .offset(y: 15)
+                                .offset(y: 18.75)
                         }
                     }
                 }
@@ -222,8 +228,10 @@ struct ContentView: View {
             }
             .padding(.trailing, 10)
             }
-            .padding(.top, 20)
-            .frame(height: UIScreen.main.bounds.height / 2)
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 10)
+            .frame(height: geometry.size.height * 0.45)
             
             // Bottom half: Song Table
             VStack(alignment: .leading, spacing: 0) {
@@ -288,7 +296,7 @@ struct ContentView: View {
                 }
                 .listStyle(PlainListStyle())
             }
-            .frame(height: UIScreen.main.bounds.height / 2)
+            .frame(height: geometry.size.height * 0.45)
             }
             
             // Gear icon overlay in bottom right corner
@@ -306,11 +314,18 @@ struct ContentView: View {
                 }
             }
         }
+        }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
         .onAppear {
             loadSongs()
+            uiUpdate() // Initial update
+            
+            // Start timer for UI updates
+            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                uiUpdate()
+            }
         }
         .onChange(of: musicFolder) { _, _ in
             loadSongs()
@@ -321,6 +336,28 @@ struct ContentView: View {
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    func uiUpdate() {
+        let now = Date()
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let minute = calendar.component(.minute, from: now)
+        let second = calendar.component(.second, from: now)
+        
+        // Convert to 12-hour format for hand positioning
+        let hour12 = hour % 12
+        
+        // Update clock hands (degrees from 12 o'clock position)
+        currentHour = Double(hour12) + Double(minute) / 60.0 // Smooth hour hand movement
+        currentMinute = Double(minute)
+        currentSecond = Double(second)
+        
+        // Update clock time text
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        clockTime = formatter.string(from: now)
     }
     
     func formatFullTime(_ time: Double) -> String {
