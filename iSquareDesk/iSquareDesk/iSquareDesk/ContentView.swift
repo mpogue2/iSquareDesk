@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var isPlaying = false
     @State private var currentTime: Double = 57
+    @State private var seekTime: Double = 57 // Time position controlled by seekbar
     @State private var duration: Double = 334 // 5:34 in seconds
     @State private var showingSettings = false
     @State private var pitch: Double = 0
@@ -41,7 +42,7 @@ struct ContentView: View {
                 // Time progress
                 HStack {
                     Spacer()
-                    Text("\(formatFullTime(currentTime)) / \(formatFullTime(duration))")
+                    Text("\(formatFullTime(seekTime)) / \(formatFullTime(duration))")
                         .font(.system(size: 14, design: .monospaced))
                 }
                 .padding(.top, 4)
@@ -72,7 +73,7 @@ struct ContentView: View {
                         }
                     }
                     
-                    Slider(value: $currentTime, in: 0...duration)
+                    Slider(value: $seekTime, in: 0...duration)
                         .accentColor(.gray)
                 }
                 .padding(.top, 10)
@@ -107,18 +108,35 @@ struct ContentView: View {
                                 .stroke(Color.black, lineWidth: 2)
                                 .frame(width: 90, height: 90)
                             
-                            // Clock hands
+                            // Hour tick marks
+                            ForEach(0..<12) { hour in
+                                Rectangle()
+                                    .fill(Color.black)
+                                    .frame(width: 1, height: 8)
+                                    .offset(y: -41)
+                                    .rotationEffect(.degrees(Double(hour) * 30))
+                            }
+                            
+                            // Hour hand
                             Rectangle()
                                 .fill(Color.black)
                                 .frame(width: 2, height: 30)
                                 .offset(y: -15)
                                 .rotationEffect(.degrees(-60))
                             
+                            // Minute hand
                             Rectangle()
                                 .fill(Color.black)
                                 .frame(width: 2, height: 35)
                                 .offset(y: -17.5)
                                 .rotationEffect(.degrees(60))
+                            
+                            // Second hand (red)
+                            Rectangle()
+                                .fill(Color.red)
+                                .frame(width: 1, height: 38)
+                                .offset(y: -19)
+                                .rotationEffect(.degrees(180))
                             
                             // Time overlay on clock face
                             Text("2:50")
