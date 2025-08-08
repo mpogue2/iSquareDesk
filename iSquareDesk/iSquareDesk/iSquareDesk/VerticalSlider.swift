@@ -31,11 +31,13 @@ struct VerticalSlider: View {
     }
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Text(label)
                 .font(.caption)
                 .foregroundColor(.primary)
                 .fontWeight(.medium)
+                .frame(width: 50)
+                .multilineTextAlignment(.center)
             
             GeometryReader { geometry in
                 ZStack(alignment: .bottom) {
@@ -55,7 +57,7 @@ struct VerticalSlider: View {
                         .frame(width: 20, height: 20)
                         .overlay(Circle().stroke(Color.gray, lineWidth: 2))
                         .position(
-                            x: 15, // Center horizontally
+                            x: geometry.size.width / 2, // Center horizontally on the track
                             y: 10 + CGFloat((1 - (value - range.lowerBound) / (range.upperBound - range.lowerBound))) * (geometry.size.height - 20)
                         )
                         .gesture(
@@ -71,13 +73,15 @@ struct VerticalSlider: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .frame(width: 30, height: 120)
+            .frame(width: 50, height: 130)
             
             Text(displayValue)
                 .font(.caption)
                 .foregroundColor(.primary)
                 .fontWeight(.medium)
-                .frame(width: 40)
+                .frame(width: 50)
+                .multilineTextAlignment(.center)
         }
+        .frame(width: 50)
     }
 }
