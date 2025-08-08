@@ -209,6 +209,9 @@ struct ContentView: View {
                     // Vertical sliders
                     HStack(spacing: 18) {
                         VerticalSlider(value: $pitch, in: -5...5, label: "Pitch", defaultValue: 0)
+                            .onChange(of: pitch) { _, newValue in
+                                audioProcessor.pitchSemitones = Float(newValue)
+                            }
                         VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125)
                         VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0)
                             .onChange(of: volume) { _, newValue in
@@ -368,8 +371,9 @@ struct ContentView: View {
             loadSongs()
             uiUpdate() // Initial update
             
-            // Set initial force mono state
+            // Set initial audio processor states
             audioProcessor.forceMono = forceMono
+            audioProcessor.pitchSemitones = Float(pitch)
             
             // Start timer for UI updates
             Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in

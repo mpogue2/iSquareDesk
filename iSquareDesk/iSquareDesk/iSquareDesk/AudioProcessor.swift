@@ -13,6 +13,7 @@ class AudioProcessor: ObservableObject {
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private let monoConverterNode = AVAudioMixerNode()
+    private let pitchNode = AVAudioUnitTimePitch()
     
     // Playback state
     @Published var isPlaying = false
@@ -42,6 +43,14 @@ class AudioProcessor: ObservableObject {
         }
     }
     
+    // Pitch control (in semitones, range -5 to +5)
+    var pitchSemitones: Float = 0.0 {
+        didSet {
+            pitchNode.pitch = pitchSemitones * 100.0 // AVAudioUnitTimePitch uses cents (100 cents = 1 semitone)
+            print("Pitch changed to \(pitchSemitones) semitones (\(pitchNode.pitch) cents)")
+        }
+    }
+    
     init() {
         setupAudioSession()
         setupAudioEngine()
@@ -60,6 +69,11 @@ class AudioProcessor: ObservableObject {
         // Attach nodes
         engine.attach(playerNode)
         engine.attach(monoConverterNode)
+        engine.attach(pitchNode)
+        
+        // Initialize pitch node settings
+        pitchNode.pitch = 0.0 // No pitch change initially
+        pitchNode.rate = 1.0  // Normal playback rate (we'll control tempo separately)
         
         // Connect the initial audio chain
         buildAudioGraph()
@@ -78,11 +92,12 @@ class AudioProcessor: ObservableObject {
         // Disconnect existing connections
         engine.disconnectNodeOutput(playerNode)
         engine.disconnectNodeOutput(monoConverterNode)
+        engine.disconnectNodeOutput(pitchNode)
         
         if forceMono {
-            // For mono: connect player -> converter -> main mixer
-            // The converter will sum L+R channels to mono
-            engine.connect(playerNode, to: monoConverterNode, format: nil)
+            // For mono: player -> pitch -> converter -> main mixer
+            engine.connect(playerNode, to: pitchNode, format: nil)
+            engine.connect(pitchNode, to: monoConverterNode, format: nil)
             
             // Configure the converter to output mono by setting up a mono format
             if let audioFormat = audioFormat {
@@ -94,11 +109,12 @@ class AudioProcessor: ObservableObject {
             } else {
                 engine.connect(monoConverterNode, to: engine.mainMixerNode, format: nil)
             }
-            print("Audio graph: Mono mode")
+            print("Audio graph: Mono mode with pitch processing")
         } else {
-            // For stereo: bypass converter, connect player directly to main mixer
-            engine.connect(playerNode, to: engine.mainMixerNode, format: nil)
-            print("Audio graph: Stereo mode")
+            // For stereo: player -> pitch -> main mixer
+            engine.connect(playerNode, to: pitchNode, format: nil)
+            engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
+            print("Audio graph: Stereo mode with pitch processing")
         }
     }
     
