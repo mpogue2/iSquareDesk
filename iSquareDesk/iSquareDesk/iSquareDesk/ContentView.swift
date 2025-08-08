@@ -67,6 +67,7 @@ struct ContentView: View {
         return documentsPath + "/SquareDanceMusic"
     }()
     @AppStorage("musicFolderURL") private var musicFolderURL: String = ""
+    @AppStorage("forceMono") private var forceMono: Bool = false
     @State private var songs: [Song] = []
     @State private var sortColumn: SortColumn = .type
     @State private var sortOrder: SortOrder = .ascending
@@ -75,9 +76,8 @@ struct ContentView: View {
     @State private var currentMinute: Double = 0 
     @State private var currentSecond: Double = 0
     @State private var clockTime: String = "12:00"
-    @State private var audioPlayer: AVAudioPlayer?
+    @StateObject private var audioProcessor = AudioProcessor()
     @State private var currentSongPath: String = ""
-    @State private var audioTimer: Timer?
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
     
@@ -137,7 +137,12 @@ struct ContentView: View {
                 // Play controls and seekbar
                 HStack(spacing: 12) {
                     VStack(spacing: 8) {
-                        Button(action: { stopAudio() }) {
+                        Button(action: { 
+                            audioProcessor.stop()
+                            isPlaying = false
+                            currentTime = 0
+                            seekTime = 0
+                        }) {
                             Image(systemName: "stop.fill")
                                 .font(.system(size: 14))
                                 .foregroundColor(.blue)
@@ -149,13 +154,15 @@ struct ContentView: View {
                         }
                         
                         Button(action: { 
-                            if isPlaying {
-                                pauseAudio()
+                            if audioProcessor.isPlaying {
+                                audioProcessor.pause()
+                                isPlaying = false
                             } else {
-                                playAudio()
+                                audioProcessor.play()
+                                isPlaying = true
                             }
                         }) {
-                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                            Image(systemName: audioProcessor.isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 14))
                                 .foregroundColor(.blue)
                                 .frame(width: 30, height: 30)
@@ -167,11 +174,11 @@ struct ContentView: View {
                     }
                     
                     GeometryReader { geometry in
-                        Slider(value: $seekTime, in: 0...duration) { editing in
+                        Slider(value: $seekTime, in: 0...audioProcessor.duration) { editing in
                             isUserSeeking = editing
                             if !editing {
                                 // User finished interacting with slider - seek to position
-                                seekToPosition()
+                                audioProcessor.seek(to: seekTime)
                             }
                         }
                         .accentColor(.gray)
@@ -179,11 +186,11 @@ struct ContentView: View {
                             // Calculate the position as a percentage of the slider width
                             let percentage = location.x / geometry.size.width
                             // Convert percentage to time value within the duration range
-                            let newTime = max(0, min(duration, percentage * duration))
+                            let newTime = max(0, min(audioProcessor.duration, percentage * audioProcessor.duration))
                             
                             // Update seek position and jump to that location
                             seekTime = newTime
-                            seekToPosition()
+                            audioProcessor.seek(to: seekTime)
                         }
                     }
                     .frame(height: 44)
@@ -205,7 +212,7 @@ struct ContentView: View {
                         VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125)
                         VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0)
                             .onChange(of: volume) { _, newValue in
-                                updateVolume()
+                                audioProcessor.volume = Float(newValue)
                             }
                     }
                     
@@ -361,6 +368,9 @@ struct ContentView: View {
             loadSongs()
             uiUpdate() // Initial update
             
+            // Set initial force mono state
+            audioProcessor.forceMono = forceMono
+            
             // Start timer for UI updates
             Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                 uiUpdate()
@@ -377,6 +387,21 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshSongList"))) { _ in
             establishSecurityScopedAccess()
             loadSongs()
+        }
+        .onReceive(audioProcessor.$currentTime) { time in
+            if !isUserSeeking {
+                currentTime = time
+                seekTime = time
+            }
+        }
+        .onReceive(audioProcessor.$isPlaying) { playing in
+            isPlaying = playing
+        }
+        .onChange(of: forceMono) { _, newValue in
+            audioProcessor.forceMono = newValue
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ForceMonoChanged"))) { _ in
+            audioProcessor.forceMono = forceMono
         }
         .onDisappear {
             stopSecurityScopedAccess()
@@ -438,7 +463,7 @@ struct ContentView: View {
     func loadSong(_ song: Song) {
         currentSongTitle = song.title
         // Stop any currently playing audio
-        stopAudio()
+        audioProcessor.stop()
         
         // Reset playback state for new song
         isPlaying = false
@@ -451,24 +476,47 @@ struct ContentView: View {
     }
     
     func loadAudioFile(for song: Song) {
-        // Construct the file path based on song type and title
-        let fileName = song.title + (song.type == "xtras" ? ".m4a" : ".mp3")
+        // Try both .mp3 and .m4a extensions
+        let extensions = ["mp3", "m4a"]
+        var loaded = false
         
-        // Try to use security-scoped URL first (for iCloud folders)
-        if let url = getSecurityScopedURL() {
-            let audioURL = url.appendingPathComponent(song.type).appendingPathComponent(fileName)
-            loadAudioFromURL(audioURL, fileName: fileName)
-        } else {
-            // Fall back to local file path
-            let filePath = musicFolder + "/\(song.type)/\(fileName)"
-            currentSongPath = filePath
+        for ext in extensions {
+            let fileName = song.title + "." + ext
             
-            guard let url = URL(string: "file://" + filePath) else {
-                print("Invalid file path: \(filePath)")
-                return
+            // Try to use security-scoped URL first (for iCloud folders)
+            if let url = getSecurityScopedURL() {
+                let audioURL = url.appendingPathComponent(song.type).appendingPathComponent(fileName)
+                if FileManager.default.fileExists(atPath: audioURL.path) {
+                    if audioProcessor.loadAudioFile(from: audioURL) {
+                        currentSongPath = audioURL.path
+                        duration = audioProcessor.duration
+                        print("Audio file loaded: \(fileName)")
+                        loaded = true
+                        break
+                    }
+                }
+            } else {
+                // Fall back to local file path
+                let filePath = musicFolder + "/\(song.type)/\(fileName)"
+                
+                if FileManager.default.fileExists(atPath: filePath) {
+                    guard let url = URL(string: "file://" + filePath) else {
+                        continue
+                    }
+                    
+                    if audioProcessor.loadAudioFile(from: url) {
+                        currentSongPath = filePath
+                        duration = audioProcessor.duration
+                        print("Audio file loaded: \(fileName)")
+                        loaded = true
+                        break
+                    }
+                }
             }
-            
-            loadAudioFromURL(url, fileName: fileName)
+        }
+        
+        if !loaded {
+            print("Failed to load audio file: \(song.title) in folder: \(song.type)")
         }
     }
     
@@ -508,95 +556,6 @@ struct ContentView: View {
         }
     }
     
-    func loadAudioFromURL(_ url: URL, fileName: String) {
-        currentSongPath = url.path
-        
-        do {
-            // Create and configure audio player
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.prepareToPlay()
-            
-            // Set initial volume from slider
-            audioPlayer?.volume = Float(volume)
-            
-            // Update duration
-            if let player = audioPlayer {
-                duration = player.duration
-            }
-            
-            print("Audio file loaded: \(fileName)")
-        } catch {
-            print("Error loading audio file: \(error)")
-        }
-    }
-    
-    func playAudio() {
-        guard let player = audioPlayer else {
-            print("No audio player available")
-            return
-        }
-        
-        // Set the volume from the slider
-        player.volume = Float(volume)
-        player.play()
-        isPlaying = true
-        
-        // Start audio timer to update current time
-        audioTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            if let player = audioPlayer {
-                currentTime = player.currentTime
-                
-                // Only update seekTime if user is not actively seeking
-                if !isUserSeeking {
-                    seekTime = player.currentTime
-                }
-                
-                // Check if song finished
-                if !player.isPlaying && currentTime > 0 {
-                    stopAudio()
-                }
-            }
-        }
-    }
-    
-    func pauseAudio() {
-        audioPlayer?.pause()
-        isPlaying = false
-        audioTimer?.invalidate()
-        audioTimer = nil
-    }
-    
-    func stopAudio() {
-        audioPlayer?.stop()
-        audioPlayer?.currentTime = 0
-        isPlaying = false
-        currentTime = 0
-        seekTime = 0
-        audioTimer?.invalidate()
-        audioTimer = nil
-    }
-    
-    func seekToPosition() {
-        guard let player = audioPlayer else { return }
-        
-        // Set the audio player's current time to the seek position
-        player.currentTime = seekTime
-        currentTime = seekTime
-        
-        // If the song was playing, continue playing from new position
-        // If it wasn't playing, just move the handle without starting playback
-        if isPlaying {
-            // Ensure playback continues from new position
-            if !player.isPlaying {
-                player.play()
-            }
-        }
-    }
-    
-    func updateVolume() {
-        // Update the audio player's volume in real-time
-        audioPlayer?.volume = Float(volume)
-    }
     
     func getTypeColor(for type: String) -> Color {
         switch type {

@@ -14,6 +14,7 @@ struct SettingsView: View {
         return documentsPath + "/SquareDanceMusic"
     }()
     @AppStorage("musicFolderURL") private var musicFolderURL = ""
+    @AppStorage("forceMono") private var forceMono = false
     @Environment(\.dismiss) private var dismiss
     @State private var showingFolderPicker = false
     @State private var showingAlert = false
@@ -41,6 +42,18 @@ struct SettingsView: View {
                         .buttonStyle(.borderedProminent)
                         
                         Text("Future versions will support selecting folders from iCloud Drive")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Divider()
+                            .padding(.vertical, 8)
+                        
+                        Toggle("Force Mono", isOn: $forceMono)
+                            .onChange(of: forceMono) { _, _ in
+                                NotificationCenter.default.post(name: NSNotification.Name("ForceMonoChanged"), object: nil)
+                            }
+                        
+                        Text("Convert stereo audio to mono for consistent playback")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
