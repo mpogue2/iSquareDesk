@@ -26,12 +26,13 @@ struct SettingsView: View {
                         Text("Music Folder")
                             .font(.headline)
                         
-                        Text(musicFolderPath)
+                        TextField("Music folder path", text: $musicFolderPath)
                             .font(.system(.body, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .padding()
-                            .background(Color.gray.opacity(0.1))
-                            .cornerRadius(8)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .onSubmit {
+                                // Post notification to refresh song list when user finishes editing
+                                NotificationCenter.default.post(name: NSNotification.Name("RefreshSongList"), object: nil)
+                            }
                         
                         Button(action: { showingFolderPicker = true }) {
                             Label("Select Folder", systemImage: "folder")
@@ -101,8 +102,8 @@ struct SettingsView: View {
         
         var isDirectory: ObjCBool = false
         if fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory) && isDirectory.boolValue {
-            // Update the music folder path to the .squaredesk folder
-            musicFolderPath = squaredeskURL.path
+            // Update the music folder path to the parent folder that contains .squaredesk
+            musicFolderPath = url.path
             alertMessage = "Music folder updated successfully! The song list will refresh."
             showingAlert = true
             

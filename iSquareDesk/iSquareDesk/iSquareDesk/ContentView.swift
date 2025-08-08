@@ -69,7 +69,7 @@ struct ContentView: View {
     @State private var songs: [Song] = []
     @State private var sortColumn: SortColumn = .type
     @State private var sortOrder: SortOrder = .ascending
-    @State private var currentSongTitle: String = "About Time"
+    @State private var currentSongTitle: String = ""
     @State private var currentHour: Double = 0
     @State private var currentMinute: Double = 0 
     @State private var currentSecond: Double = 0
