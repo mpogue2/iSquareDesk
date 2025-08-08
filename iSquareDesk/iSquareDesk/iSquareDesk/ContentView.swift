@@ -164,14 +164,27 @@ struct ContentView: View {
                         }
                     }
                     
-                    Slider(value: $seekTime, in: 0...duration) { editing in
-                        isUserSeeking = editing
-                        if !editing {
-                            // User finished interacting with slider - seek to position
+                    GeometryReader { geometry in
+                        Slider(value: $seekTime, in: 0...duration) { editing in
+                            isUserSeeking = editing
+                            if !editing {
+                                // User finished interacting with slider - seek to position
+                                seekToPosition()
+                            }
+                        }
+                        .accentColor(.gray)
+                        .onTapGesture { location in
+                            // Calculate the position as a percentage of the slider width
+                            let percentage = location.x / geometry.size.width
+                            // Convert percentage to time value within the duration range
+                            let newTime = max(0, min(duration, percentage * duration))
+                            
+                            // Update seek position and jump to that location
+                            seekTime = newTime
                             seekToPosition()
                         }
                     }
-                    .accentColor(.gray)
+                    .frame(height: 44)
                 }
                 .padding(.top, 10)
                 
@@ -189,6 +202,9 @@ struct ContentView: View {
                         VerticalSlider(value: $pitch, in: -5...5, label: "Pitch", defaultValue: 0)
                         VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125)
                         VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0)
+                            .onChange(of: volume) { _, newValue in
+                                updateVolume()
+                            }
                     }
                     
                     // Circular knobs (B/M/T)
@@ -449,6 +465,9 @@ struct ContentView: View {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.prepareToPlay()
             
+            // Set initial volume from slider
+            audioPlayer?.volume = Float(volume)
+            
             // Update duration
             if let player = audioPlayer {
                 duration = player.duration
@@ -466,6 +485,8 @@ struct ContentView: View {
             return
         }
         
+        // Set the volume from the slider
+        player.volume = Float(volume)
         player.play()
         isPlaying = true
         
@@ -519,6 +540,11 @@ struct ContentView: View {
                 player.play()
             }
         }
+    }
+    
+    func updateVolume() {
+        // Update the audio player's volume in real-time
+        audioPlayer?.volume = Float(volume)
     }
     
     func getTypeColor(for type: String) -> Color {
