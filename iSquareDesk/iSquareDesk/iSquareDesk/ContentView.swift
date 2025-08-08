@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Foundation
+import AVFoundation
 
 extension Color {
     init(hex: String) {
@@ -73,6 +74,10 @@ struct ContentView: View {
     @State private var currentMinute: Double = 0 
     @State private var currentSecond: Double = 0
     @State private var clockTime: String = "12:00"
+    @State private var audioPlayer: AVAudioPlayer?
+    @State private var currentSongPath: String = ""
+    @State private var audioTimer: Timer?
+    @State private var isUserSeeking: Bool = false
     
     var sortedSongs: [Song] {
         songs.sorted { song1, song2 in
@@ -130,7 +135,7 @@ struct ContentView: View {
                 // Play controls and seekbar
                 HStack(spacing: 12) {
                     VStack(spacing: 8) {
-                        Button(action: {}) {
+                        Button(action: { stopAudio() }) {
                             Image(systemName: "stop.fill")
                                 .font(.system(size: 14))
                                 .foregroundColor(.blue)
@@ -141,7 +146,13 @@ struct ContentView: View {
                                 )
                         }
                         
-                        Button(action: { isPlaying.toggle() }) {
+                        Button(action: { 
+                            if isPlaying {
+                                pauseAudio()
+                            } else {
+                                playAudio()
+                            }
+                        }) {
                             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 14))
                                 .foregroundColor(.blue)
@@ -153,8 +164,14 @@ struct ContentView: View {
                         }
                     }
                     
-                    Slider(value: $seekTime, in: 0...duration)
-                        .accentColor(.gray)
+                    Slider(value: $seekTime, in: 0...duration) { editing in
+                        isUserSeeking = editing
+                        if !editing {
+                            // User finished interacting with slider - seek to position
+                            seekToPosition()
+                        }
+                    }
+                    .accentColor(.gray)
                 }
                 .padding(.top, 10)
                 
@@ -402,12 +419,106 @@ struct ContentView: View {
     
     func loadSong(_ song: Song) {
         currentSongTitle = song.title
+        // Stop any currently playing audio
+        stopAudio()
+        
         // Reset playback state for new song
         isPlaying = false
         currentTime = 0
         seekTime = 0
-        // Here you can add additional logic for loading the actual audio file
+        
+        // Load the audio file
+        loadAudioFile(for: song)
         print("Loading song: \(song.title) (\(song.type))")
+    }
+    
+    func loadAudioFile(for song: Song) {
+        // Construct the file path based on song type and title
+        let fileName = song.title + (song.type == "xtras" ? ".m4a" : ".mp3")
+        let filePath = musicFolder + "/\(song.type)/\(fileName)"
+        currentSongPath = filePath
+        
+        // Create URL from file path
+        guard let url = URL(string: "file://" + filePath) else {
+            print("Invalid file path: \(filePath)")
+            return
+        }
+        
+        do {
+            // Create and configure audio player
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.prepareToPlay()
+            
+            // Update duration
+            if let player = audioPlayer {
+                duration = player.duration
+            }
+            
+            print("Audio file loaded: \(fileName)")
+        } catch {
+            print("Error loading audio file: \(error)")
+        }
+    }
+    
+    func playAudio() {
+        guard let player = audioPlayer else {
+            print("No audio player available")
+            return
+        }
+        
+        player.play()
+        isPlaying = true
+        
+        // Start audio timer to update current time
+        audioTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            if let player = audioPlayer {
+                currentTime = player.currentTime
+                
+                // Only update seekTime if user is not actively seeking
+                if !isUserSeeking {
+                    seekTime = player.currentTime
+                }
+                
+                // Check if song finished
+                if !player.isPlaying && currentTime > 0 {
+                    stopAudio()
+                }
+            }
+        }
+    }
+    
+    func pauseAudio() {
+        audioPlayer?.pause()
+        isPlaying = false
+        audioTimer?.invalidate()
+        audioTimer = nil
+    }
+    
+    func stopAudio() {
+        audioPlayer?.stop()
+        audioPlayer?.currentTime = 0
+        isPlaying = false
+        currentTime = 0
+        seekTime = 0
+        audioTimer?.invalidate()
+        audioTimer = nil
+    }
+    
+    func seekToPosition() {
+        guard let player = audioPlayer else { return }
+        
+        // Set the audio player's current time to the seek position
+        player.currentTime = seekTime
+        currentTime = seekTime
+        
+        // If the song was playing, continue playing from new position
+        // If it wasn't playing, just move the handle without starting playback
+        if isPlaying {
+            // Ensure playback continues from new position
+            if !player.isPlaying {
+                player.play()
+            }
+        }
     }
     
     func getTypeColor(for type: String) -> Color {
