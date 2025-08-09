@@ -123,7 +123,7 @@ struct ContentView: View {
                 
                 // Orange line
                 Rectangle()
-                    .fill(Color.orange)
+                    .fill(Color.init(hex: "#9C0000"))
                     .frame(height: 3)
                 
                 // Time progress
@@ -144,11 +144,11 @@ struct ContentView: View {
                         }) {
                             Image(systemName: "stop.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(.blue)
-                                .frame(width: 30, height: 30)
+                                .foregroundColor(.black)
+                                .frame(width: 40, height: 40)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color.blue, lineWidth: 2)
+                                        .stroke(Color.black, lineWidth: 1)
                                 )
                         }
                         
@@ -163,11 +163,11 @@ struct ContentView: View {
                         }) {
                             Image(systemName: audioProcessor.isPlaying ? "pause.fill" : "play.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(.blue)
-                                .frame(width: 30, height: 30)
+                                .foregroundColor(.black)
+                                .frame(width: 40, height: 40)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color.blue, lineWidth: 2)
+                                        .stroke(Color.black, lineWidth: 1)
                                 )
                         }
                     }
@@ -208,15 +208,15 @@ struct ContentView: View {
                 
                 Spacer()
             }
-            .frame(width: min(550, geometry.size.width * 0.45))
+            .frame(width: min(550, geometry.size.width * 0.49))
             .padding(.leading, 10)
             
             // Right side: All controls
             VStack(spacing: 20) {
                 // Top row: Vertical sliders, circular knobs, and clock
-                HStack(spacing: 20) {
+                HStack(spacing: 22) {
                     // Vertical sliders
-                    HStack(spacing: 18) {
+                    HStack(spacing: 2) {
                         VerticalSlider(value: $pitch, in: -5...5, label: "Pitch", defaultValue: 0, allowTapIncrement: true, incrementAmount: 1.0, snapToIntegers: true)
                             .onChange(of: pitch) { _, newValue in
                                 // Slider snaps to integers, so every change is a real change
