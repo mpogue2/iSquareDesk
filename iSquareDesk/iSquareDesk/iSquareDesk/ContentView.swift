@@ -314,6 +314,10 @@ struct ContentView: View {
                                 .foregroundColor(.blue)
                                 .offset(y: 18.75)
                         }
+                        .onTapGesture {
+                            print("Reloading song list...")
+                            loadSongs()
+                        }
                     }
                 }
                 
