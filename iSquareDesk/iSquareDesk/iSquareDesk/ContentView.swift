@@ -329,11 +329,11 @@ struct ContentView: View {
                     Button(action: { toggleSort(.type) }) {
                         HStack {
                             Text("Type")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 16.94, weight: .semibold))
                                 .foregroundColor(.primary)
                             if sortColumn == .type {
                                 Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14.52))
                                     .foregroundColor(.primary)
                             }
                         }
@@ -343,11 +343,11 @@ struct ContentView: View {
                     Button(action: { toggleSort(.label) }) {
                         HStack {
                             Text("Label")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 16.94, weight: .semibold))
                                 .foregroundColor(.primary)
                             if sortColumn == .label {
                                 Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14.52))
                                     .foregroundColor(.primary)
                             }
                         }
@@ -357,11 +357,11 @@ struct ContentView: View {
                     Button(action: { toggleSort(.title) }) {
                         HStack {
                             Text("Title")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 16.94, weight: .semibold))
                                 .foregroundColor(.primary)
                             if sortColumn == .title {
                                 Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14.52))
                                     .foregroundColor(.primary)
                             }
                         }
@@ -371,11 +371,11 @@ struct ContentView: View {
                     Button(action: { toggleSort(.pitch) }) {
                         HStack {
                             Text("Pitch")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 16.94, weight: .semibold))
                                 .foregroundColor(.primary)
                             if sortColumn == .pitch {
                                 Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14.52))
                                     .foregroundColor(.primary)
                             }
                         }
@@ -385,11 +385,11 @@ struct ContentView: View {
                     Button(action: { toggleSort(.tempo) }) {
                         HStack {
                             Text("Tempo")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 16.94, weight: .semibold))
                                 .foregroundColor(.primary)
                             if sortColumn == .tempo {
                                 Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 14.52))
                                     .foregroundColor(.primary)
                             }
                         }
@@ -406,27 +406,27 @@ struct ContentView: View {
                         ForEach(sortedSongs) { song in
                             HStack {
                                 Text(song.type)
-                                    .font(.system(size: 17.5))
+                                    .font(.system(size: 21.175))
                                     .foregroundColor(getTypeColor(for: song.type))
                                     .frame(width: 80, alignment: .leading)
                                 
                                 Text(song.label)
-                                    .font(.system(size: 17.5))
+                                    .font(.system(size: 21.175))
                                     .foregroundColor(getTypeColor(for: song.type))
                                     .frame(width: 120, alignment: .leading)
                                 
                                 Text(song.title)
-                                    .font(.system(size: 17.5))
+                                    .font(.system(size: 21.175))
                                     .foregroundColor(getTypeColor(for: song.type))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 
                                 Text("\(song.pitch)")
-                                    .font(.system(size: 17.5))
+                                    .font(.system(size: 21.175))
                                     .foregroundColor(getTypeColor(for: song.type))
                                     .frame(width: 60, alignment: .center)
                                 
                                 Text("\(song.tempo)")
-                                    .font(.system(size: 17.5))
+                                    .font(.system(size: 21.175))
                                     .foregroundColor(getTypeColor(for: song.type))
                                     .frame(width: 66, alignment: .center)
                             }
