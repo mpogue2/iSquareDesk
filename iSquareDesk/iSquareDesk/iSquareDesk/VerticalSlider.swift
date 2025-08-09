@@ -13,13 +13,19 @@ struct VerticalSlider: View {
     let label: String
     let showMax: Bool
     let defaultValue: Double
+    let allowTapIncrement: Bool
+    let incrementAmount: Double
+    let snapToIntegers: Bool
     
-    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil) {
+    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil, allowTapIncrement: Bool = false, incrementAmount: Double = 1.0, snapToIntegers: Bool = false) {
         self._value = value
         self.range = range
         self.label = label
         self.showMax = showMax
         self.defaultValue = defaultValue ?? range.lowerBound
+        self.allowTapIncrement = allowTapIncrement
+        self.incrementAmount = incrementAmount
+        self.snapToIntegers = snapToIntegers
     }
     
     var displayValue: String {
@@ -40,6 +46,17 @@ struct VerticalSlider: View {
                 .fontWeight(.medium)
                 .frame(width: 50)
                 .multilineTextAlignment(.center)
+                .onTapGesture {
+                    // Tap on label = increment
+                    if allowTapIncrement {
+                        let newValue = min(value + incrementAmount, range.upperBound)
+                        if snapToIntegers {
+                            value = round(newValue)
+                        } else {
+                            value = newValue
+                        }
+                    }
+                }
             
             GeometryReader { geometry in
                 ZStack(alignment: .bottom) {
@@ -62,20 +79,28 @@ struct VerticalSlider: View {
                             x: geometry.size.width / 2, // Center horizontally on the track
                             y: 10 + CGFloat((1 - (value - range.lowerBound) / (range.upperBound - range.lowerBound))) * (geometry.size.height - 20)
                         )
-                        .gesture(
-                            DragGesture()
-                                .onChanged { gesture in
-                                    let trackHeight = geometry.size.height - 20
-                                    let clampedY = max(10, min(gesture.location.y, geometry.size.height - 10))
-                                    let normalizedPosition = (clampedY - 10) / trackHeight
-                                    let newValue = range.upperBound - (normalizedPosition * (range.upperBound - range.lowerBound))
-                                    value = min(max(newValue, range.lowerBound), range.upperBound)
-                                }
-                        )
                         .onTapGesture(count: 2) {
                             value = defaultValue
                         }
                 }
+                .contentShape(Rectangle()) // Make entire area draggable
+                .gesture(
+                    DragGesture()
+                        .onChanged { gesture in
+                            let trackHeight = geometry.size.height - 20
+                            let clampedY = max(10, min(gesture.location.y, geometry.size.height - 10))
+                            let normalizedPosition = (clampedY - 10) / trackHeight
+                            let newValue = range.upperBound - (normalizedPosition * (range.upperBound - range.lowerBound))
+                            let clampedValue = min(max(newValue, range.lowerBound), range.upperBound)
+                            
+                            // Snap to integers if enabled
+                            if snapToIntegers {
+                                value = round(clampedValue)
+                            } else {
+                                value = clampedValue
+                            }
+                        }
+                )
                 .frame(maxWidth: .infinity)
             }
             .frame(width: 50, height: 130)
@@ -86,6 +111,17 @@ struct VerticalSlider: View {
                 .fontWeight(.medium)
                 .frame(width: 50)
                 .multilineTextAlignment(.center)
+                .onTapGesture {
+                    // Tap on value = decrement
+                    if allowTapIncrement {
+                        let newValue = max(value - incrementAmount, range.lowerBound)
+                        if snapToIntegers {
+                            value = round(newValue)
+                        } else {
+                            value = newValue
+                        }
+                    }
+                }
         }
         .frame(width: 50)
     }

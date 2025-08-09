@@ -208,12 +208,14 @@ struct ContentView: View {
                 HStack(spacing: 20) {
                     // Vertical sliders
                     HStack(spacing: 18) {
-                        VerticalSlider(value: $pitch, in: -5...5, label: "Pitch", defaultValue: 0)
+                        VerticalSlider(value: $pitch, in: -5...5, label: "Pitch", defaultValue: 0, allowTapIncrement: true, incrementAmount: 1.0, snapToIntegers: true)
                             .onChange(of: pitch) { _, newValue in
+                                // Slider snaps to integers, so every change is a real change
                                 audioProcessor.pitchSemitones = Float(newValue)
                             }
-                        VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125)
+                        VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125, allowTapIncrement: true, incrementAmount: 1.0, snapToIntegers: true)
                             .onChange(of: tempo) { _, newValue in
+                                // Slider snaps to integers, so every change is a real change
                                 audioProcessor.tempoBPM = Float(newValue)
                             }
                         VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0)
@@ -480,7 +482,7 @@ struct ContentView: View {
         
         // Reset tempo to 125 BPM (assuming all songs are 125 BPM)
         tempo = 125.0
-        audioProcessor.tempoBPM = 125.0
+        audioProcessor.tempoBPM = Float(125.0)
         
         // Load the audio file
         loadAudioFile(for: song)
