@@ -400,40 +400,46 @@ struct ContentView: View {
                 .padding(.vertical, 8)
                 .background(Color.gray.opacity(0.1))
                 
-                // Song List
-                List(sortedSongs) { song in
-                    HStack {
-                        Text(song.type)
-                            .font(.system(size: 17.5))
-                            .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 80, alignment: .leading)
-                        
-                        Text(song.label)
-                            .font(.system(size: 17.5))
-                            .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 120, alignment: .leading)
-                        
-                        Text(song.title)
-                            .font(.system(size: 17.5))
-                            .foregroundColor(getTypeColor(for: song.type))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        
-                        Text("\(song.pitch)")
-                            .font(.system(size: 17.5))
-                            .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 60, alignment: .center)
-                        
-                        Text("\(song.tempo)")
-                            .font(.system(size: 17.5))
-                            .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 66, alignment: .center)
-                    }
-                    .padding(.vertical, 2)
-                    .onTapGesture {
-                        loadSong(song)
+                // Song List with iOS scroll indicators
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(sortedSongs) { song in
+                            HStack {
+                                Text(song.type)
+                                    .font(.system(size: 17.5))
+                                    .foregroundColor(getTypeColor(for: song.type))
+                                    .frame(width: 80, alignment: .leading)
+                                
+                                Text(song.label)
+                                    .font(.system(size: 17.5))
+                                    .foregroundColor(getTypeColor(for: song.type))
+                                    .frame(width: 120, alignment: .leading)
+                                
+                                Text(song.title)
+                                    .font(.system(size: 17.5))
+                                    .foregroundColor(getTypeColor(for: song.type))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                
+                                Text("\(song.pitch)")
+                                    .font(.system(size: 17.5))
+                                    .foregroundColor(getTypeColor(for: song.type))
+                                    .frame(width: 60, alignment: .center)
+                                
+                                Text("\(song.tempo)")
+                                    .font(.system(size: 17.5))
+                                    .foregroundColor(getTypeColor(for: song.type))
+                                    .frame(width: 66, alignment: .center)
+                            }
+                            .padding(.vertical, 2)
+                            .padding(.horizontal, 10)
+                            .onTapGesture {
+                                loadSong(song)
+                            }
+                        }
                     }
                 }
-                .listStyle(PlainListStyle())
+                .scrollIndicators(.visible)
+                .frame(maxHeight: .infinity)
             }
             .frame(height: geometry.size.height * 0.45)
             }
