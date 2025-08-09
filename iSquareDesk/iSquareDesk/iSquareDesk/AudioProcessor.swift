@@ -259,8 +259,7 @@ class AudioProcessor: ObservableObject {
         playerNode.pause()
         isPlaying = false
         stopDisplayTimer()
-        stopLevelTimer()
-        audioLevel = 0.0
+        startDecayTimer()
     }
     
     func stop() {
@@ -270,8 +269,7 @@ class AudioProcessor: ObservableObject {
         seekOffset = 0
         hasJustSeeked = false
         stopDisplayTimer()
-        stopLevelTimer()
-        audioLevel = 0.0
+        startDecayTimer()
     }
     
     func seek(to time: TimeInterval) {
@@ -416,7 +414,27 @@ class AudioProcessor: ObservableObject {
     private func stopLevelTimer() {
         levelTimer?.invalidate()
         levelTimer = nil
-        peakLevel = 0.0
+        // Don't reset peakLevel - let it decay naturally
+    }
+    
+    private func startDecayTimer() {
+        stopLevelTimer()
+        // Start a timer that only handles decay (no audio input processing)
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Apply decay to existing level
+            self.peakLevel = self.peakLevel * self.levelDecayRate
+            // Convert to logarithmic scale for better visual representation
+            let normalizedLevel = self.convertToLogarithmicScale(self.peakLevel)
+            DispatchQueue.main.async {
+                self.audioLevel = min(1.0, normalizedLevel)
+                // Stop decay timer when level gets very low
+                if self.peakLevel < 0.001 {
+                    self.stopLevelTimer()
+                    self.audioLevel = 0.0
+                }
+            }
+        }
     }
     
     private func convertToLogarithmicScale(_ linearLevel: Float) -> Float {
