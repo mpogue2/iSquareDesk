@@ -401,7 +401,7 @@ class AudioProcessor: ObservableObject {
     
     private func startLevelTimer() {
         stopLevelTimer()
-        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             // Convert to logarithmic scale for better visual representation
             let normalizedLevel = self.convertToLogarithmicScale(self.peakLevel)
@@ -420,7 +420,7 @@ class AudioProcessor: ObservableObject {
     private func startDecayTimer() {
         stopLevelTimer()
         // Start a timer that only handles decay (no audio input processing)
-        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             // Apply decay to existing level
             self.peakLevel = self.peakLevel * self.levelDecayRate
