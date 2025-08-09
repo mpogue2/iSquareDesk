@@ -7,6 +7,7 @@
 
 import Foundation
 import AVFoundation
+import Accelerate
 
 class AudioProcessor: ObservableObject {
     // Audio engine components
@@ -20,6 +21,7 @@ class AudioProcessor: ObservableObject {
     @Published var isPlaying = false
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
+    @Published var audioLevel: Float = 0.0 // VU meter level (0.0 to 1.0)
     
     // Track when we've seeked to prevent incorrect time updates
     private var seekOffset: TimeInterval = 0
@@ -31,6 +33,11 @@ class AudioProcessor: ObservableObject {
     
     // Timer for updating current time
     private var displayTimer: Timer?
+    
+    // Audio level monitoring
+    private var levelTimer: Timer?
+    private var peakLevel: Float = 0.0
+    private let levelDecayRate: Float = 0.95 // Smooth decay for VU meter
     
     // Volume control
     var volume: Float = 1.0 {
@@ -116,6 +123,9 @@ class AudioProcessor: ObservableObject {
         
         // Connect the initial audio chain
         buildAudioGraph()
+        
+        // Setup audio level monitoring
+        setupAudioLevelMonitoring()
         
         // Prepare and start the engine
         engine.prepare()
@@ -242,12 +252,15 @@ class AudioProcessor: ObservableObject {
         playerNode.play()
         isPlaying = true
         startDisplayTimer()
+        startLevelTimer()
     }
     
     func pause() {
         playerNode.pause()
         isPlaying = false
         stopDisplayTimer()
+        stopLevelTimer()
+        audioLevel = 0.0
     }
     
     func stop() {
@@ -257,6 +270,8 @@ class AudioProcessor: ObservableObject {
         seekOffset = 0
         hasJustSeeked = false
         stopDisplayTimer()
+        stopLevelTimer()
+        audioLevel = 0.0
     }
     
     func seek(to time: TimeInterval) {
@@ -362,8 +377,61 @@ class AudioProcessor: ObservableObject {
         print("EQ Band \(bandIndex) gain set to \(gain) dB")
     }
     
+    private func setupAudioLevelMonitoring() {
+        // Install tap on the main mixer node to monitor audio levels
+        let bufferSize: AVAudioFrameCount = 1024
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: bufferSize, format: nil) { [weak self] buffer, _ in
+            guard let self = self else { return }
+            
+            // Calculate RMS level from the audio buffer
+            let channelData = buffer.floatChannelData!
+            let channelCount = Int(buffer.format.channelCount)
+            let frameLength = Int(buffer.frameLength)
+            
+            var rms: Float = 0.0
+            for channel in 0..<channelCount {
+                var channelRMS: Float = 0.0
+                vDSP_rmsqv(channelData[channel], 1, &channelRMS, vDSP_Length(frameLength))
+                rms += channelRMS
+            }
+            rms = rms / Float(channelCount)
+            
+            // Update peak level with smoothing
+            self.peakLevel = max(rms, self.peakLevel * self.levelDecayRate)
+        }
+    }
+    
+    private func startLevelTimer() {
+        stopLevelTimer()
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Convert to logarithmic scale for better visual representation
+            let normalizedLevel = self.convertToLogarithmicScale(self.peakLevel)
+            DispatchQueue.main.async {
+                self.audioLevel = min(1.0, normalizedLevel)
+            }
+        }
+    }
+    
+    private func stopLevelTimer() {
+        levelTimer?.invalidate()
+        levelTimer = nil
+        peakLevel = 0.0
+    }
+    
+    private func convertToLogarithmicScale(_ linearLevel: Float) -> Float {
+        // Convert linear audio level to logarithmic scale for better visual representation
+        guard linearLevel > 0 else { return 0 }
+        let minDb: Float = -60.0
+        let db = 20.0 * log10(linearLevel)
+        let normalizedDb = (db - minDb) / (-minDb)
+        return max(0, min(1, normalizedDb))
+    }
+    
     deinit {
         stopDisplayTimer()
+        stopLevelTimer()
+        engine.mainMixerNode.removeTap(onBus: 0)
         engine.stop()
     }
 }

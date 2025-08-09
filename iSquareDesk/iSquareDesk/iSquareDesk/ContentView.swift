@@ -249,7 +249,7 @@ struct ContentView: View {
                                 // Slider snaps to integers, so every change is a real change
                                 audioProcessor.tempoBPM = Float(newValue)
                             }
-                        VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0, allowTapIncrement: true, incrementAmount: 0.1)
+                        VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0, allowTapIncrement: true, incrementAmount: 0.1, vuLevel: Double(audioProcessor.audioLevel))
                             .onChange(of: volume) { _, newValue in
                                 audioProcessor.volume = Float(newValue)
                             }

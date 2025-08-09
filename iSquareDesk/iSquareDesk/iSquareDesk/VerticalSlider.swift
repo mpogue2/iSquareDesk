@@ -16,8 +16,9 @@ struct VerticalSlider: View {
     let allowTapIncrement: Bool
     let incrementAmount: Double
     let snapToIntegers: Bool
+    let vuLevel: Double? // Optional VU meter level (0.0 to 1.0)
     
-    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil, allowTapIncrement: Bool = false, incrementAmount: Double = 1.0, snapToIntegers: Bool = false) {
+    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil, allowTapIncrement: Bool = false, incrementAmount: Double = 1.0, snapToIntegers: Bool = false, vuLevel: Double? = nil) {
         self._value = value
         self.range = range
         self.label = label
@@ -26,6 +27,7 @@ struct VerticalSlider: View {
         self.allowTapIncrement = allowTapIncrement
         self.incrementAmount = incrementAmount
         self.snapToIntegers = snapToIntegers
+        self.vuLevel = vuLevel
     }
     
     var displayValue: String {
@@ -65,10 +67,47 @@ struct VerticalSlider: View {
                         .fill(Color.gray.opacity(0.3))
                         .frame(width: 6)
                     
-                    // Fill
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.gray)
-                        .frame(width: 6, height: CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
+                    // VU Meter or Regular Fill
+                    if let vuLevel = vuLevel, label == "Volume" {
+                        // VU meter display with gradient
+                        let vuHeight = CGFloat(vuLevel) * geometry.size.height
+                        
+                        // Create gradient based on VU level
+                        let gradient = LinearGradient(
+                            gradient: Gradient(stops: [
+                                .init(color: .green, location: 0.0),
+                                .init(color: .green, location: 0.6),
+                                .init(color: .yellow, location: 0.8),
+                                .init(color: .orange, location: 0.9),
+                                .init(color: .red, location: 1.0)
+                            ]),
+                            startPoint: .bottom,
+                            endPoint: .top
+                        )
+                        
+                        // VU meter bar
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(gradient)
+                            .frame(width: 6, height: vuHeight)
+                            .animation(.linear(duration: 0.05), value: vuLevel)
+                        
+                        // Volume level indicator (dimmed)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 6, height: CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
+                            .overlay(
+                                // Add a thin line at the actual volume level
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.5))
+                                    .frame(width: 6, height: 1)
+                                    .offset(y: -CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
+                            )
+                    } else {
+                        // Regular fill for non-VU mode
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.gray)
+                            .frame(width: 6, height: CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
+                    }
                     
                     // Thumb (positioned with 10px margin from top and bottom)
                     Circle()
