@@ -210,7 +210,12 @@ class AudioProcessor: ObservableObject {
             guard let audioFile = audioFile else { return false }
             
             audioFormat = audioFile.processingFormat
-            duration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+            let calculatedDuration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+            
+            // Update @Published property on main thread
+            DispatchQueue.main.async {
+                self.duration = calculatedDuration
+            }
             
             return true
         } catch {
@@ -250,22 +255,37 @@ class AudioProcessor: ObservableObject {
         }
         
         playerNode.play()
-        isPlaying = true
+        
+        // Update @Published property on main thread
+        DispatchQueue.main.async {
+            self.isPlaying = true
+        }
+        
         startDisplayTimer()
         startLevelTimer()
     }
     
     func pause() {
         playerNode.pause()
-        isPlaying = false
+        
+        // Update @Published property on main thread
+        DispatchQueue.main.async {
+            self.isPlaying = false
+        }
+        
         stopDisplayTimer()
         startDecayTimer()
     }
     
     func stop() {
         playerNode.stop()
-        isPlaying = false
-        currentTime = 0
+        
+        // Update @Published properties on main thread
+        DispatchQueue.main.async {
+            self.isPlaying = false
+            self.currentTime = 0
+        }
+        
         seekOffset = 0
         hasJustSeeked = false
         stopDisplayTimer()
@@ -312,7 +332,9 @@ class AudioProcessor: ObservableObject {
               let audioFormat = audioFormat else { 
             // If we can't get the player time but we just seeked, use the seek offset
             if hasJustSeeked {
-                currentTime = seekOffset
+                DispatchQueue.main.async {
+                    self.currentTime = self.seekOffset
+                }
             }
             return 
         }
@@ -320,21 +342,27 @@ class AudioProcessor: ObservableObject {
         let sampleRate = audioFormat.sampleRate
         let nodeCurrentTime = Double(playerTime.sampleTime) / sampleRate
         
-        // If we just seeked and the node reports 0 or a very small time, use our seek offset
+        // Calculate the new time value
+        let newTime: Double
         if hasJustSeeked && nodeCurrentTime < 0.5 {
-            currentTime = seekOffset
+            newTime = seekOffset
             // After a few updates, trust the node time
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.hasJustSeeked = false
             }
         } else {
             // Add the seek offset to the node time to get the actual position
-            currentTime = seekOffset + nodeCurrentTime
+            newTime = seekOffset + nodeCurrentTime
             hasJustSeeked = false
         }
         
+        // Update @Published property on main thread
+        DispatchQueue.main.async {
+            self.currentTime = newTime
+        }
+        
         // Check if we've reached the end
-        if currentTime >= duration {
+        if newTime >= duration {
             handlePlaybackCompletion()
         }
     }
