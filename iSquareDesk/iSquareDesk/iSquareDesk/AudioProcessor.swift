@@ -422,7 +422,7 @@ class AudioProcessor: ObservableObject {
     private func convertToLogarithmicScale(_ linearLevel: Float) -> Float {
         // Convert linear audio level to logarithmic scale for better visual representation
         guard linearLevel > 0 else { return 0 }
-        let minDb: Float = -60.0
+        let minDb: Float = -40.0
         let db = 20.0 * log10(linearLevel)
         let normalizedDb = (db - minDb) / (-minDb)
         return max(0, min(1, normalizedDb))
