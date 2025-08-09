@@ -20,6 +20,10 @@ class AudioProcessor: ObservableObject {
     @Published var currentTime: TimeInterval = 0
     @Published var duration: TimeInterval = 0
     
+    // Track when we've seeked to prevent incorrect time updates
+    private var seekOffset: TimeInterval = 0
+    private var hasJustSeeked = false
+    
     // Audio file and format
     private var audioFile: AVAudioFile?
     private var audioFormat: AVAudioFormat?
@@ -179,13 +183,31 @@ class AudioProcessor: ObservableObject {
     }
     
     func play() {
-        guard let audioFile = audioFile else { return }
+        guard let audioFile = audioFile,
+              let audioFormat = audioFormat else { return }
         
-        // Schedule the file for playback
+        // Schedule the file for playback from current position
         if !isPlaying {
-            playerNode.scheduleFile(audioFile, at: nil) { [weak self] in
-                DispatchQueue.main.async {
-                    self?.handlePlaybackCompletion()
+            // Track the seek position
+            seekOffset = currentTime
+            hasJustSeeked = true
+            
+            // Calculate current frame position
+            let sampleRate = audioFormat.sampleRate
+            let currentFramePosition = AVAudioFramePosition(sampleRate * currentTime)
+            let remainingFrames = audioFile.length - currentFramePosition
+            
+            // Only schedule if there are frames left to play
+            if remainingFrames > 0 {
+                audioFile.framePosition = currentFramePosition
+                
+                playerNode.scheduleSegment(audioFile,
+                                          startingFrame: currentFramePosition,
+                                          frameCount: AVAudioFrameCount(remainingFrames),
+                                          at: nil) { [weak self] in
+                    DispatchQueue.main.async {
+                        self?.handlePlaybackCompletion()
+                    }
                 }
             }
         }
@@ -205,12 +227,21 @@ class AudioProcessor: ObservableObject {
         playerNode.stop()
         isPlaying = false
         currentTime = 0
+        seekOffset = 0
+        hasJustSeeked = false
         stopDisplayTimer()
     }
     
     func seek(to time: TimeInterval) {
         guard let audioFile = audioFile,
               let audioFormat = audioFormat else { return }
+        
+        // Store playing state before stopping
+        let wasPlaying = isPlaying
+        
+        // Track the seek
+        seekOffset = time
+        hasJustSeeked = true
         
         // Calculate frame position
         let sampleRate = audioFormat.sampleRate
@@ -224,8 +255,8 @@ class AudioProcessor: ObservableObject {
         if length > 0 {
             audioFile.framePosition = newSampleTime
             
-            if isPlaying {
-                // Reschedule from new position
+            if wasPlaying {
+                // Reschedule from new position and continue playing
                 playerNode.scheduleSegment(audioFile,
                                           startingFrame: newSampleTime,
                                           frameCount: AVAudioFrameCount(length),
@@ -235,6 +266,8 @@ class AudioProcessor: ObservableObject {
                     }
                 }
                 playerNode.play()
+                // Ensure isPlaying stays true
+                isPlaying = true
             }
         }
         
@@ -256,10 +289,29 @@ class AudioProcessor: ObservableObject {
     private func updateCurrentTime() {
         guard let nodeTime = playerNode.lastRenderTime,
               let playerTime = playerNode.playerTime(forNodeTime: nodeTime),
-              let audioFormat = audioFormat else { return }
+              let audioFormat = audioFormat else { 
+            // If we can't get the player time but we just seeked, use the seek offset
+            if hasJustSeeked {
+                currentTime = seekOffset
+            }
+            return 
+        }
         
         let sampleRate = audioFormat.sampleRate
-        currentTime = Double(playerTime.sampleTime) / sampleRate
+        let nodeCurrentTime = Double(playerTime.sampleTime) / sampleRate
+        
+        // If we just seeked and the node reports 0 or a very small time, use our seek offset
+        if hasJustSeeked && nodeCurrentTime < 0.5 {
+            currentTime = seekOffset
+            // After a few updates, trust the node time
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.hasJustSeeked = false
+            }
+        } else {
+            // Add the seek offset to the node time to get the actual position
+            currentTime = seekOffset + nodeCurrentTime
+            hasJustSeeked = false
+        }
         
         // Check if we've reached the end
         if currentTime >= duration {

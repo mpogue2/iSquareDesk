@@ -158,6 +158,8 @@ struct ContentView: View {
                                 audioProcessor.pause()
                                 isPlaying = false
                             } else {
+                                // Sync the audio processor's current time with the seek time before playing
+                                audioProcessor.currentTime = seekTime
                                 audioProcessor.play()
                                 isPlaying = true
                             }
@@ -174,10 +176,11 @@ struct ContentView: View {
                     }
                     
                     GeometryReader { geometry in
-                        Slider(value: $seekTime, in: 0...audioProcessor.duration) { editing in
+                        Slider(value: $seekTime, in: 0...max(1.0, audioProcessor.duration)) { editing in
                             isUserSeeking = editing
                             if !editing {
                                 // User finished interacting with slider - seek to position
+                                print("Seeking to: \(seekTime)")
                                 audioProcessor.seek(to: seekTime)
                             }
                         }
@@ -188,9 +191,18 @@ struct ContentView: View {
                             // Convert percentage to time value within the duration range
                             let newTime = max(0, min(audioProcessor.duration, percentage * audioProcessor.duration))
                             
+                            // Set user seeking flag to prevent currentTime updates from interfering
+                            isUserSeeking = true
+                            
                             // Update seek position and jump to that location
+                            print("Tap seeking to: \(newTime)")
                             seekTime = newTime
-                            audioProcessor.seek(to: seekTime)
+                            audioProcessor.seek(to: newTime)
+                            
+                            // Reset the flag after a brief delay to allow the seek to complete
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                isUserSeeking = false
+                            }
                         }
                     }
                     .frame(height: 44)
