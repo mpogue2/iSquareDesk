@@ -51,7 +51,7 @@ enum SortOrder {
 }
 
 struct ContentView: View {
-    @State private var isPlaying = false
+    
     @State private var currentTime: Double = 0
     @State private var seekTime: Double = 0 // Time position controlled by seekbar
     @State private var duration: Double = 0
@@ -139,7 +139,6 @@ struct ContentView: View {
                     VStack(spacing: 8) {
                         Button(action: { 
                             audioProcessor.stop()
-                            isPlaying = false
                             currentTime = 0
                             seekTime = 0
                         }) {
@@ -156,12 +155,10 @@ struct ContentView: View {
                         Button(action: { 
                             if audioProcessor.isPlaying {
                                 audioProcessor.pause()
-                                isPlaying = false
                             } else {
                                 // Sync the audio processor's current time with the seek time before playing
                                 audioProcessor.currentTime = seekTime
                                 audioProcessor.play()
-                                isPlaying = true
                             }
                         }) {
                             Image(systemName: audioProcessor.isPlaying ? "pause.fill" : "play.fill")
@@ -416,9 +413,7 @@ struct ContentView: View {
                 seekTime = time
             }
         }
-        .onReceive(audioProcessor.$isPlaying) { playing in
-            isPlaying = playing
-        }
+        
         .onChange(of: forceMono) { _, newValue in
             audioProcessor.forceMono = newValue
         }
@@ -488,7 +483,6 @@ struct ContentView: View {
         audioProcessor.stop()
         
         // Reset playback state for new song
-        isPlaying = false
         currentTime = 0
         seekTime = 0
         

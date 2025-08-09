@@ -233,31 +233,24 @@ class AudioProcessor: ObservableObject {
     }
     
     func seek(to time: TimeInterval) {
-        guard let audioFile = audioFile else { 
+        guard audioFile != nil else {
             print("Seek failed: no audio file")
-            return 
+            return
         }
-        
-        // Store playing state before stopping
+
         let wasPlaying = isPlaying
-        print("Seek called: wasPlaying = \(wasPlaying), time = \(time)")
-        
-        // Stop current playback
         playerNode.stop()
         isPlaying = false
         stopDisplayTimer()
-        
-        // Set the current time to the seek position
-        currentTime = time
-        seekOffset = time
-        hasJustSeeked = true
-        
+
+        let newTime = max(0, min(time, duration))
+        currentTime = newTime
+
         if wasPlaying {
-            print("Resuming playback after seek using play() method...")
-            // Use the same logic as the Play button - this always works correctly
-            play()
-        } else {
-            print("Was not playing, not resuming playback")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.currentTime = newTime
+                self?.play()
+            }
         }
     }
     
