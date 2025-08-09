@@ -191,14 +191,22 @@ struct ContentView: View {
                                             audioProcessor.play()
                                         }
                                     }) {
-                                        Image(systemName: audioProcessor.isPlaying ? "pause.fill" : "play.fill")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(isLoadingCurrentSong ? .gray : .black)
-                                            .frame(width: 40, height: 40)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .stroke(Color.black, lineWidth: 1)
-                                            )
+                                        ZStack {
+                                            Image(systemName: audioProcessor.isPlaying ? "pause.fill" : "play.fill")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(isLoadingCurrentSong ? .clear : .black)
+                                                .frame(width: 40, height: 40)
+                                            
+                                            if isLoadingCurrentSong {
+                                                ProgressView()
+                                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                                    .scaleEffect(0.8)
+                                            }
+                                        }
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(Color.black, lineWidth: 1)
+                                        )
                                     }
                                     .disabled(isLoadingCurrentSong)
                                 }
