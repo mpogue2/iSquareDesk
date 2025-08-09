@@ -14,6 +14,7 @@ class AudioProcessor: ObservableObject {
     private let playerNode = AVAudioPlayerNode()
     private let monoConverterNode = AVAudioMixerNode()
     private let pitchNode = AVAudioUnitTimePitch()
+    private let eqNode = AVAudioUnitEQ(numberOfBands: 3)
     
     // Playback state
     @Published var isPlaying = false
@@ -66,6 +67,25 @@ class AudioProcessor: ObservableObject {
         }
     }
     
+    // EQ controls (in dB, range -12 to +12)
+    var bassBoost: Float = 0.0 {
+        didSet {
+            updateEQBand(0, gain: bassBoost) // Bass band
+        }
+    }
+    
+    var midBoost: Float = 0.0 {
+        didSet {
+            updateEQBand(1, gain: midBoost) // Mid band
+        }
+    }
+    
+    var trebleBoost: Float = 0.0 {
+        didSet {
+            updateEQBand(2, gain: trebleBoost) // Treble band
+        }
+    }
+    
     init() {
         setupAudioSession()
         setupAudioEngine()
@@ -85,10 +105,14 @@ class AudioProcessor: ObservableObject {
         engine.attach(playerNode)
         engine.attach(monoConverterNode)
         engine.attach(pitchNode)
+        engine.attach(eqNode)
         
         // Initialize pitch node settings
         pitchNode.pitch = 0.0 // No pitch change initially
         pitchNode.rate = 1.0  // Normal playback rate initially (125 BPM = 1.0x rate)
+        
+        // Initialize EQ bands
+        setupEQBands()
         
         // Connect the initial audio chain
         buildAudioGraph()
@@ -108,11 +132,13 @@ class AudioProcessor: ObservableObject {
         engine.disconnectNodeOutput(playerNode)
         engine.disconnectNodeOutput(monoConverterNode)
         engine.disconnectNodeOutput(pitchNode)
+        engine.disconnectNodeOutput(eqNode)
         
         if forceMono {
-            // For mono: player -> pitch -> converter -> main mixer
+            // For mono: player -> pitch -> EQ -> converter -> main mixer
             engine.connect(playerNode, to: pitchNode, format: nil)
-            engine.connect(pitchNode, to: monoConverterNode, format: nil)
+            engine.connect(pitchNode, to: eqNode, format: nil)
+            engine.connect(eqNode, to: monoConverterNode, format: nil)
             
             // Configure the converter to output mono by setting up a mono format
             if let audioFormat = audioFormat {
@@ -124,12 +150,13 @@ class AudioProcessor: ObservableObject {
             } else {
                 engine.connect(monoConverterNode, to: engine.mainMixerNode, format: nil)
             }
-            print("Audio graph: Mono mode with pitch processing")
+            print("Audio graph: Mono mode with pitch and EQ processing")
         } else {
-            // For stereo: player -> pitch -> main mixer
+            // For stereo: player -> pitch -> EQ -> main mixer
             engine.connect(playerNode, to: pitchNode, format: nil)
-            engine.connect(pitchNode, to: engine.mainMixerNode, format: nil)
-            print("Audio graph: Stereo mode with pitch processing")
+            engine.connect(pitchNode, to: eqNode, format: nil)
+            engine.connect(eqNode, to: engine.mainMixerNode, format: nil)
+            print("Audio graph: Stereo mode with pitch and EQ processing")
         }
     }
     
@@ -303,6 +330,37 @@ class AudioProcessor: ObservableObject {
         stop()
     }
     
+    private func setupEQBands() {
+        // Setup Bass band: Peak filter at 125 Hz with Q=4.0
+        let bassBand = eqNode.bands[0]
+        bassBand.filterType = .parametric
+        bassBand.frequency = 125.0
+        bassBand.bandwidth = 0.25 // Q=4.0 corresponds to bandwidth ≈ 1/Q = 0.25 octaves
+        bassBand.gain = 0.0
+        bassBand.bypass = false
+        
+        // Setup Mid band: Peak filter at 1000 Hz with Q=0.9
+        let midBand = eqNode.bands[1]
+        midBand.filterType = .parametric
+        midBand.frequency = 1000.0
+        midBand.bandwidth = 1.11 // Q=0.9 corresponds to bandwidth ≈ 1/Q = 1.11 octaves
+        midBand.gain = 0.0
+        midBand.bypass = false
+        
+        // Setup Treble band: Peak filter at 8000 Hz with Q=0.9
+        let trebleBand = eqNode.bands[2]
+        trebleBand.filterType = .parametric
+        trebleBand.frequency = 8000.0
+        trebleBand.bandwidth = 1.11 // Q=0.9 corresponds to bandwidth ≈ 1/Q = 1.11 octaves
+        trebleBand.gain = 0.0
+        trebleBand.bypass = false
+    }
+    
+    private func updateEQBand(_ bandIndex: Int, gain: Float) {
+        guard bandIndex < eqNode.bands.count else { return }
+        eqNode.bands[bandIndex].gain = gain
+        print("EQ Band \(bandIndex) gain set to \(gain) dB")
+    }
     
     deinit {
         stopDisplayTimer()

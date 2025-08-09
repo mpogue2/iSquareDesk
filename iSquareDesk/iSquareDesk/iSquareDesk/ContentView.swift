@@ -258,8 +258,17 @@ struct ContentView: View {
                     // Circular knobs (B/M/T)
                     VStack(spacing: 10) {
                         CircularKnob(value: $treble, in: -12...12, label: "T")
+                            .onChange(of: treble) { _, newValue in
+                                audioProcessor.trebleBoost = Float(newValue)
+                            }
                         CircularKnob(value: $mid, in: -12...12, label: "M")
+                            .onChange(of: mid) { _, newValue in
+                                audioProcessor.midBoost = Float(newValue)
+                            }
                         CircularKnob(value: $bass, in: -12...12, label: "B")
+                            .onChange(of: bass) { _, newValue in
+                                audioProcessor.bassBoost = Float(newValue)
+                            }
                     }
                     
                     // Clock section
