@@ -394,7 +394,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(width: 66, alignment: .center)
+                    .frame(width: 76, alignment: .center)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
