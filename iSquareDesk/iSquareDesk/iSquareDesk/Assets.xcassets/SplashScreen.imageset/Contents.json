@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "SplashScreen2025d.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

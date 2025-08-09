@@ -11,7 +11,7 @@ import SwiftUI
 struct iSquareDeskApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AppLaunchView()
         }
     }
 }
