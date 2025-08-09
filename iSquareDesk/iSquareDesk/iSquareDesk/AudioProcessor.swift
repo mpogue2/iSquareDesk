@@ -191,7 +191,7 @@ class AudioProcessor: ObservableObject {
             try engine.start()
             
             // Resume playback if it was playing
-            if wasPlaying, let audioFile = audioFile {
+            if wasPlaying, audioFile != nil {
                 seek(to: currentPosition)
                 playerNode.play()
             }
