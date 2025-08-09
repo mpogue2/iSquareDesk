@@ -338,9 +338,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(alignment: .leading)
-                    
-                    Spacer()
+                    .frame(width: 80, alignment: .leading)
                     
                     Button(action: { toggleSort(.label) }) {
                         HStack {
@@ -354,9 +352,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(alignment: .leading)
-                    
-                    Spacer()
+                    .frame(width: 120, alignment: .leading)
                     
                     Button(action: { toggleSort(.title) }) {
                         HStack {
@@ -384,7 +380,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(width: 60, alignment: .leading)
+                    .frame(width: 60, alignment: .center)
                     
                     Button(action: { toggleSort(.tempo) }) {
                         HStack {
@@ -398,7 +394,7 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(width: 60, alignment: .leading)
+                    .frame(width: 66, alignment: .center)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
@@ -410,12 +406,12 @@ struct ContentView: View {
                         Text(song.type)
                             .font(.system(size: 17.5))
                             .foregroundColor(getTypeColor(for: song.type))
-                            .frame(alignment: .leading)
+                            .frame(width: 80, alignment: .leading)
                         
                         Text(song.label)
                             .font(.system(size: 17.5))
                             .foregroundColor(getTypeColor(for: song.type))
-                            .frame(alignment: .leading)
+                            .frame(width: 120, alignment: .leading)
                         
                         Text(song.title)
                             .font(.system(size: 17.5))
@@ -425,12 +421,12 @@ struct ContentView: View {
                         Text("\(song.pitch)")
                             .font(.system(size: 17.5))
                             .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 60, alignment: .leading)
+                            .frame(width: 60, alignment: .center)
                         
                         Text("\(song.tempo)")
                             .font(.system(size: 17.5))
                             .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 60, alignment: .leading)
+                            .frame(width: 66, alignment: .center)
                     }
                     .padding(.vertical, 2)
                     .onTapGesture {
