@@ -12,6 +12,7 @@ struct CircularKnob: View {
     let range: ClosedRange<Double>
     let label: String
     let veinColor: Color
+    @State private var lastAngle: Double = 0
     
     init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, veinColor: Color = Color(red: 0/255, green: 156/255, blue: 255/255)) {
         self._value = value
@@ -93,15 +94,36 @@ struct CircularKnob: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
+                        // Initialize lastAngle on first drag if needed
+                        if lastAngle == 0 && angle != 0 {
+                            lastAngle = angle
+                        }
                         let center = CGPoint(x: 20, y: 20)
                         let vector = CGPoint(x: gesture.location.x - center.x, y: gesture.location.y - center.y)
-                        var angle = atan2(vector.x, -vector.y) * 180 / .pi // Angle from vertical
+                        var newAngle = atan2(vector.x, -vector.y) * 180 / .pi // Angle from vertical
+                        
+                        // Prevent snapping across bottom
+                        // If we're at far left (-135) and trying to go more left, or
+                        // if we're at far right (135) and trying to go more right,
+                        // check if we're crossing through the bottom
+                        if abs(newAngle - lastAngle) > 180 {
+                            // Large jump detected - we're trying to cross the bottom
+                            // Clamp to the current extreme
+                            if lastAngle < 0 {
+                                newAngle = -135
+                            } else {
+                                newAngle = 135
+                            }
+                        }
                         
                         // Clamp to -135 to 135 range
-                        angle = max(-135, min(135, angle))
+                        newAngle = max(-135, min(135, newAngle))
+                        
+                        // Update last angle for next comparison
+                        lastAngle = newAngle
                         
                         // Convert angle to value
-                        let normalizedValue = angle / 135 // -1 to 1
+                        let normalizedValue = newAngle / 135 // -1 to 1
                         let centerValue = (range.upperBound + range.lowerBound) / 2
                         let halfRange = (range.upperBound - range.lowerBound) / 2
                         value = centerValue + normalizedValue * halfRange
@@ -109,5 +131,8 @@ struct CircularKnob: View {
             )
         }
         .frame(height: 40)
+        .onAppear {
+            lastAngle = angle
+        }
     }
 }
