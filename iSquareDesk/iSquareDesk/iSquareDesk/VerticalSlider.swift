@@ -69,38 +69,23 @@ struct VerticalSlider: View {
                     
                     // VU Meter or Regular Fill
                     if let vuLevel = vuLevel, label == "Volume" {
-                        // VU meter display with gradient
+                        // Single line VU meter with level-based color
                         let vuHeight = CGFloat(vuLevel) * geometry.size.height
-                        
-                        // Create gradient based on VU level
-                        let gradient = LinearGradient(
-                            gradient: Gradient(stops: [
-                                .init(color: .green, location: 0.0),
-                                .init(color: .green, location: 0.6),
-                                .init(color: .yellow, location: 0.8),
-                                .init(color: .orange, location: 0.9),
-                                .init(color: .red, location: 1.0)
-                            ]),
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
+                        let vuColor = getVUColor(level: vuLevel)
                         
                         // VU meter bar
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(gradient)
+                            .fill(vuColor)
                             .frame(width: 6, height: vuHeight)
                             .animation(.linear(duration: 0.05), value: vuLevel)
                         
-                        // Volume level indicator (dimmed)
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(width: 6, height: CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
-                            .overlay(
-                                // Add a thin line at the actual volume level
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.5))
-                                    .frame(width: 6, height: 1)
-                                    .offset(y: -CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
+                        // Volume level indicator (thin white line)
+                        Rectangle()
+                            .fill(Color.white.opacity(0.6))
+                            .frame(width: 8, height: 1)
+                            .position(
+                                x: geometry.size.width / 2,
+                                y: geometry.size.height - (CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
                             )
                     } else {
                         // Regular fill for non-VU mode
@@ -163,5 +148,49 @@ struct VerticalSlider: View {
                 }
         }
         .frame(width: 50)
+    }
+    
+    // Helper function to get VU meter color with smooth interpolation
+    private func getVUColor(level: Double) -> Color {
+        if level <= 0.8 {
+            // 0% to 80%: solid green
+            return Color.green
+        } else if level <= 0.9 {
+            // 80% to 90%: interpolate from green to red
+            let progress = (level - 0.8) / 0.1 // 0.0 to 1.0
+            return interpolateColor(from: Color.green, to: Color.red, progress: progress)
+        } else {
+            // 90% to 100%: solid red
+            return Color.red
+        }
+    }
+    
+    // Helper function to interpolate between two colors
+    private func interpolateColor(from startColor: Color, to endColor: Color, progress: Double) -> Color {
+        let clampedProgress = max(0.0, min(1.0, progress))
+        
+        // Convert SwiftUI Colors to RGB components
+        let startRGB = UIColor(startColor).getRGBComponents()
+        let endRGB = UIColor(endColor).getRGBComponents()
+        
+        // Interpolate each component
+        let red = startRGB.red + (endRGB.red - startRGB.red) * clampedProgress
+        let green = startRGB.green + (endRGB.green - startRGB.green) * clampedProgress
+        let blue = startRGB.blue + (endRGB.blue - startRGB.blue) * clampedProgress
+        
+        return Color(red: red, green: green, blue: blue)
+    }
+}
+
+// Extension to extract RGB components from UIColor
+extension UIColor {
+    func getRGBComponents() -> (red: Double, green: Double, blue: Double) {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        
+        self.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return (red: Double(red), green: Double(green), blue: Double(blue))
     }
 }

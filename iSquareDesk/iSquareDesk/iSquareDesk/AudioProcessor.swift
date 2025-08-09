@@ -37,7 +37,7 @@ class AudioProcessor: ObservableObject {
     // Audio level monitoring
     private var levelTimer: Timer?
     private var peakLevel: Float = 0.0
-    private let levelDecayRate: Float = 0.95 // Smooth decay for VU meter
+    private let levelDecayRate: Float = 0.855 // Smooth decay for VU meter (10% faster decay)
     
     // Volume control
     var volume: Float = 1.0 {
@@ -403,7 +403,7 @@ class AudioProcessor: ObservableObject {
     
     private func startLevelTimer() {
         stopLevelTimer()
-        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             // Convert to logarithmic scale for better visual representation
             let normalizedLevel = self.convertToLogarithmicScale(self.peakLevel)
