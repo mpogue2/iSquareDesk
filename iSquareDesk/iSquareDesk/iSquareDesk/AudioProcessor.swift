@@ -233,45 +233,32 @@ class AudioProcessor: ObservableObject {
     }
     
     func seek(to time: TimeInterval) {
-        guard let audioFile = audioFile,
-              let audioFormat = audioFormat else { return }
+        guard let audioFile = audioFile else { 
+            print("Seek failed: no audio file")
+            return 
+        }
         
         // Store playing state before stopping
         let wasPlaying = isPlaying
-        
-        // Track the seek
-        seekOffset = time
-        hasJustSeeked = true
-        
-        // Calculate frame position
-        let sampleRate = audioFormat.sampleRate
-        let newSampleTime = AVAudioFramePosition(sampleRate * time)
-        let length = audioFile.length - newSampleTime
+        print("Seek called: wasPlaying = \(wasPlaying), time = \(time)")
         
         // Stop current playback
         playerNode.stop()
+        isPlaying = false
+        stopDisplayTimer()
         
-        // Only schedule if there are frames left to play
-        if length > 0 {
-            audioFile.framePosition = newSampleTime
-            
-            if wasPlaying {
-                // Reschedule from new position and continue playing
-                playerNode.scheduleSegment(audioFile,
-                                          startingFrame: newSampleTime,
-                                          frameCount: AVAudioFrameCount(length),
-                                          at: nil) { [weak self] in
-                    DispatchQueue.main.async {
-                        self?.handlePlaybackCompletion()
-                    }
-                }
-                playerNode.play()
-                // Ensure isPlaying stays true
-                isPlaying = true
-            }
-        }
-        
+        // Set the current time to the seek position
         currentTime = time
+        seekOffset = time
+        hasJustSeeked = true
+        
+        if wasPlaying {
+            print("Resuming playback after seek using play() method...")
+            // Use the same logic as the Play button - this always works correctly
+            play()
+        } else {
+            print("Was not playing, not resuming playback")
+        }
     }
     
     private func startDisplayTimer() {
