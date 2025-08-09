@@ -290,8 +290,8 @@ struct ContentView: View {
                             // Hour hand
                             Rectangle()
                                 .fill(Color.black)
-                                .frame(width: 2, height: 37.5)
-                                .offset(y: -18.75)
+                                .frame(width: 3, height: 30.375)
+                                .offset(y: -15.1875)
                                 .rotationEffect(.degrees(currentHour * 30))
                             
                             // Minute hand
