@@ -39,18 +39,34 @@ extension Color {
 struct Song: Identifiable {
     let id = UUID()
     let type: String
+    let label: String
     let title: String
+    let pitch: Int
+    let tempo: Int
+    let originalFilePath: String // Full path to the audio file
 }
 
 enum SortColumn {
-    case type, title
+    case type, label, title, pitch, tempo
 }
 
-enum SortOrder {
-    case ascending, descending
+// Function to parse filename into Label and Title
+func parseFilename(_ filename: String) -> (label: String, title: String) {
+    // Find the last occurrence of " - "
+    if let range = filename.range(of: " - ", options: .backwards) {
+        let label = String(filename[..<range.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let title = String(filename[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        return (label, title)
+    } else {
+        // If no " - " is found, treat the whole filename as the title and label as empty
+        return ("", filename.trimmingCharacters(in: .whitespaces))
+    }
 }
 
 struct ContentView: View {
+    enum SortOrder {
+        case ascending, descending
+    }
     
     @State private var currentTime: Double = 0
     @State private var seekTime: Double = 0 // Time position controlled by seekbar
@@ -82,13 +98,19 @@ struct ContentView: View {
     @State private var securityScopedURL: URL?
     
     var sortedSongs: [Song] {
-        songs.sorted { song1, song2 in
+        songs.sorted { (song1: Song, song2: Song) in
             let result: Bool
             switch sortColumn {
             case .type:
                 result = song1.type.localizedCaseInsensitiveCompare(song2.type) == .orderedAscending
+            case .label:
+                result = song1.label.localizedCaseInsensitiveCompare(song2.label) == .orderedAscending
             case .title:
                 result = song1.title.localizedCaseInsensitiveCompare(song2.title) == .orderedAscending
+            case .pitch:
+                result = song1.pitch < song2.pitch
+            case .tempo:
+                result = song1.tempo < song2.tempo
             }
             return sortOrder == .ascending ? result : !result
         }
@@ -316,7 +338,23 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .frame(width: 120, alignment: .leading)
+                    .frame(alignment: .leading)
+                    
+                    Spacer()
+                    
+                    Button(action: { toggleSort(.label) }) {
+                        HStack {
+                            Text("Label")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.primary)
+                            if sortColumn == .label {
+                                Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                    }
+                    .frame(alignment: .leading)
                     
                     Spacer()
                     
@@ -333,6 +371,34 @@ struct ContentView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Button(action: { toggleSort(.pitch) }) {
+                        HStack {
+                            Text("Pitch")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.primary)
+                            if sortColumn == .pitch {
+                                Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                    }
+                    .frame(width: 60, alignment: .leading)
+                    
+                    Button(action: { toggleSort(.tempo) }) {
+                        HStack {
+                            Text("Tempo")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.primary)
+                            if sortColumn == .tempo {
+                                Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.primary)
+                            }
+                        }
+                    }
+                    .frame(width: 60, alignment: .leading)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
@@ -344,12 +410,27 @@ struct ContentView: View {
                         Text(song.type)
                             .font(.system(size: 17.5))
                             .foregroundColor(getTypeColor(for: song.type))
-                            .frame(width: 120, alignment: .leading)
+                            .frame(alignment: .leading)
+                        
+                        Text(song.label)
+                            .font(.system(size: 17.5))
+                            .foregroundColor(getTypeColor(for: song.type))
+                            .frame(alignment: .leading)
                         
                         Text(song.title)
                             .font(.system(size: 17.5))
                             .foregroundColor(getTypeColor(for: song.type))
                             .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        Text("\(song.pitch)")
+                            .font(.system(size: 17.5))
+                            .foregroundColor(getTypeColor(for: song.type))
+                            .frame(width: 60, alignment: .leading)
+                        
+                        Text("\(song.tempo)")
+                            .font(.system(size: 17.5))
+                            .foregroundColor(getTypeColor(for: song.type))
+                            .frame(width: 60, alignment: .leading)
                     }
                     .padding(.vertical, 2)
                     .onTapGesture {
@@ -486,9 +567,11 @@ struct ContentView: View {
         currentTime = 0
         seekTime = 0
         
-        // Reset tempo to 125 BPM (assuming all songs are 125 BPM)
-        tempo = 125.0
-        audioProcessor.tempoBPM = Float(125.0)
+        // Set tempo and pitch from song properties
+        tempo = Double(song.tempo)
+        audioProcessor.tempoBPM = Float(song.tempo)
+        pitch = Double(song.pitch)
+        audioProcessor.pitchSemitones = Float(song.pitch)
         
         // Load the audio file
         loadAudioFile(for: song)
@@ -496,47 +579,18 @@ struct ContentView: View {
     }
     
     func loadAudioFile(for song: Song) {
-        // Try both .mp3 and .m4a extensions
-        let extensions = ["mp3", "m4a"]
-        var loaded = false
+        let audioURL = URL(fileURLWithPath: song.originalFilePath)
         
-        for ext in extensions {
-            let fileName = song.title + "." + ext
-            
-            // Try to use security-scoped URL first (for iCloud folders)
-            if let url = getSecurityScopedURL() {
-                let audioURL = url.appendingPathComponent(song.type).appendingPathComponent(fileName)
-                if FileManager.default.fileExists(atPath: audioURL.path) {
-                    if audioProcessor.loadAudioFile(from: audioURL) {
-                        currentSongPath = audioURL.path
-                        duration = audioProcessor.duration
-                        print("Audio file loaded: \(fileName)")
-                        loaded = true
-                        break
-                    }
-                }
+        if FileManager.default.fileExists(atPath: audioURL.path) {
+            if audioProcessor.loadAudioFile(from: audioURL) {
+                currentSongPath = audioURL.path
+                duration = audioProcessor.duration
+                print("Audio file loaded: \(song.originalFilePath)")
             } else {
-                // Fall back to local file path
-                let filePath = musicFolder + "/\(song.type)/\(fileName)"
-                
-                if FileManager.default.fileExists(atPath: filePath) {
-                    guard let url = URL(string: "file://" + filePath) else {
-                        continue
-                    }
-                    
-                    if audioProcessor.loadAudioFile(from: url) {
-                        currentSongPath = filePath
-                        duration = audioProcessor.duration
-                        print("Audio file loaded: \(fileName)")
-                        loaded = true
-                        break
-                    }
-                }
+                print("Failed to load audio file: \(song.originalFilePath)")
             }
-        }
-        
-        if !loaded {
-            print("Failed to load audio file: \(song.title) in folder: \(song.type)")
+        } else {
+            print("Audio file does not exist at path: \(song.originalFilePath)")
         }
     }
     
@@ -614,15 +668,19 @@ struct ContentView: View {
                     
                     let fileExtension = file.pathExtension.lowercased()
                     if fileExtension == "mp3" || fileExtension == "m4a" {
-                        // Parse Type and Title from relative path
-                        let pathComponents = relativePath.components(separatedBy: "/")
-                        let type = pathComponents.first ?? "unknown"
-                        let filename = pathComponents.last ?? relativePath
+                        let type = relativePath.components(separatedBy: "/").first ?? "unknown"
+                        let filenameWithoutExtension = file.lastPathComponent.replacingOccurrences(of: ".\(fileExtension)", with: "")
                         
-                        // Remove file extension from title
-                        let title = filename.replacingOccurrences(of: ".\(fileExtension)", with: "")
+                        let parsed = parseFilename(filenameWithoutExtension)
                         
-                        let song = Song(type: type, title: title)
+                        let song = Song(
+                            type: type,
+                            label: parsed.label,
+                            title: parsed.title,
+                            pitch: 0,
+                            tempo: 125,
+                            originalFilePath: file.path
+                        )
                         songs.append(song)
                     }
                 }
