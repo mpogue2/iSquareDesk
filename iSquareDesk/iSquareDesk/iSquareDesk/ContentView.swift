@@ -44,6 +44,9 @@ struct Song: Identifiable {
     let pitch: Int
     let tempo: Int
     let originalFilePath: String // Full path to the audio file
+    let loop: Bool
+    let introPos: Float
+    let outroPos: Float
 }
 
 enum SortColumn {
@@ -100,6 +103,9 @@ struct ContentView: View {
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
     @State private var searchText: String = ""
+    @State private var currentSongLoop: Bool = false
+    @State private var currentIntroPos: Float = 0.0
+    @State private var currentOutroPos: Float = 1.0
     
     var filteredSongs: [Song] {
         let filtered = searchText.isEmpty ? songs : songs.filter { song in
@@ -220,32 +226,55 @@ struct ContentView: View {
                                 }
                                 
                                 GeometryReader { geometry in
-                                    Slider(value: $seekTime, in: 0...max(1.0, audioProcessor.duration)) { editing in
-                                        isUserSeeking = editing
-                                        if !editing {
-                                            // User finished interacting with slider - seek to position
-                                            print("Seeking to: \(seekTime)")
-                                            audioProcessor.seek(to: seekTime)
+                                    ZStack {
+                                        // Loop brackets overlay (behind slider handle)
+                                        if currentSongLoop && duration > 0 {
+                                            // Left bracket at intro position
+                                            Text("[")
+                                                .font(.system(size: 36, weight: .bold))
+                                                .foregroundColor(.blue)
+                                                .position(
+                                                    x: geometry.size.width * CGFloat(currentIntroPos),
+                                                    y: geometry.size.height * 0.42
+                                                )
+                                            
+                                            // Right bracket at outro position
+                                            Text("]")
+                                                .font(.system(size: 36, weight: .bold))
+                                                .foregroundColor(.blue)
+                                                .position(
+                                                    x: geometry.size.width * CGFloat(currentOutroPos),
+                                                    y: geometry.size.height * 0.42
+                                                )
                                         }
-                                    }
-                                    .accentColor(.gray)
-                                    .onTapGesture { location in
-                                        // Calculate the position as a percentage of the slider width
-                                        let percentage = location.x / geometry.size.width
-                                        // Convert percentage to time value within the duration range
-                                        let newTime = max(0, min(audioProcessor.duration, percentage * audioProcessor.duration))
                                         
-                                        // Set user seeking flag to prevent currentTime updates from interfering
-                                        isUserSeeking = true
-                                        
-                                        // Update seek position and jump to that location
-                                        print("Tap seeking to: \(newTime)")
-                                        seekTime = newTime
-                                        audioProcessor.seek(to: newTime)
-                                        
-                                        // Reset the flag after a brief delay to allow the seek to complete
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                                            isUserSeeking = false
+                                        Slider(value: $seekTime, in: 0...max(1.0, audioProcessor.duration)) { editing in
+                                            isUserSeeking = editing
+                                            if !editing {
+                                                // User finished interacting with slider - seek to position
+                                                print("Seeking to: \(seekTime)")
+                                                audioProcessor.seek(to: seekTime)
+                                            }
+                                        }
+                                        .accentColor(.gray)
+                                        .onTapGesture { location in
+                                            // Calculate the position as a percentage of the slider width
+                                            let percentage = location.x / geometry.size.width
+                                            // Convert percentage to time value within the duration range
+                                            let newTime = max(0, min(audioProcessor.duration, percentage * audioProcessor.duration))
+                                            
+                                            // Set user seeking flag to prevent currentTime updates from interfering
+                                            isUserSeeking = true
+                                            
+                                            // Update seek position and jump to that location
+                                            print("Tap seeking to: \(newTime)")
+                                            seekTime = newTime
+                                            audioProcessor.seek(to: newTime)
+                                            
+                                            // Reset the flag after a brief delay to allow the seek to complete
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                isUserSeeking = false
+                                            }
                                         }
                                     }
                                 }
@@ -552,6 +581,19 @@ struct ContentView: View {
             if !isUserSeeking {
                 currentTime = time
                 seekTime = time
+                
+                // Check for loop detection
+                if currentSongLoop && audioProcessor.isPlaying && duration > 0 {
+                    let normalizedTime = Float(time / duration)
+                    
+                    // If we've reached or passed the outro position, jump to intro position
+                    if normalizedTime >= currentOutroPos {
+                        let introTimeInSeconds = Double(currentIntroPos) * duration
+                        audioProcessor.seek(to: introTimeInSeconds)
+                        seekTime = introTimeInSeconds
+                        currentTime = introTimeInSeconds
+                    }
+                }
             }
         }
         
@@ -644,6 +686,11 @@ struct ContentView: View {
         currentSongPath = ""
         duration = 0
         
+        // Reset loop state
+        currentSongLoop = false
+        currentIntroPos = 0.0
+        currentOutroPos = 1.0
+        
         // Update UI state immediately
         currentTime = 0
         seekTime = 0
@@ -651,6 +698,11 @@ struct ContentView: View {
         audioProcessor.tempoBPM = Float(song.tempo)
         pitch = Double(song.pitch)
         audioProcessor.pitchSemitones = Float(song.pitch)
+        
+        // Update loop settings
+        currentSongLoop = song.loop
+        currentIntroPos = song.introPos
+        currentOutroPos = song.outroPos
         
         // Move heavy file loading to background thread
         DispatchQueue.global(qos: .userInitiated).async { [self] in
@@ -808,16 +860,22 @@ struct ContentView: View {
                         
                         let parsed = parseFilename(filenameWithoutExtension)
                         
-                        // Look up pitch and tempo from database
+                        // Look up pitch, tempo, and loop data from database
                         var songPitch = 0
                         var songTempo = 125
+                        var songLoop = false
+                        var songIntroPos: Float = 0.0
+                        var songOutroPos: Float = 1.0
                         
                         if let db = database {
                             // Get relative path for database lookup
                             let dbLookupPath = relativePath
-                            if let dbValues = db.getPitchAndTempo(for: dbLookupPath) {
+                            if let dbValues = db.getPitchTempoAndLoop(for: dbLookupPath) {
                                 songPitch = dbValues.pitch
                                 songTempo = dbValues.tempo
+                                songLoop = dbValues.loop
+                                songIntroPos = dbValues.introPos
+                                songOutroPos = dbValues.outroPos
                             }
                         }
                         
@@ -827,7 +885,10 @@ struct ContentView: View {
                             title: parsed.title,
                             pitch: songPitch,
                             tempo: songTempo,
-                            originalFilePath: file.path
+                            originalFilePath: file.path,
+                            loop: songLoop,
+                            introPos: songIntroPos,
+                            outroPos: songOutroPos
                         )
                         songs.append(song)
                     }
