@@ -163,8 +163,14 @@ struct ContentView: View {
                                 
                                 Spacer()
                                 
-                                Text(formatTime(currentTime))
-                                    .font(.system(size: 24, weight: .medium, design: .monospaced))
+                                if isSingingCall {
+                                    Text(getCurrentSingingCallSection())
+                                        .font(.system(size: 24, weight: .medium))
+                                        .foregroundColor(.red)
+                                } else {
+                                    Text(formatTime(currentTime))
+                                        .font(.system(size: 24, weight: .medium, design: .monospaced))
+                                }
                             }
                             
                             // Orange line
@@ -891,6 +897,22 @@ struct ContentView: View {
             SingingCallSection(name: "CLOSER", start: introPos + 6*D/7, end: introPos + 7*D/7, color: openerBreakCloserColor),
             SingingCallSection(name: "TAG", start: introPos + 7*D/7, end: 1.0, color: introTagColor)
         ]
+    }
+    
+    func getCurrentSingingCallSection() -> String {
+        guard isSingingCall && duration > 0 else { return "" }
+        
+        let normalizedTime = Float((currentTime + 1.0) / duration)
+        let sections = calculateSingingCallSections(introPos: currentIntroPos, outroPos: currentOutroPos)
+        
+        for section in sections {
+            if normalizedTime >= section.start && normalizedTime < section.end {
+                return section.name
+            }
+        }
+        
+        // Fallback to last section if we're at the very end
+        return sections.last?.name ?? ""
     }
     
     func scanDirectoryRecursively(url: URL, fileManager: FileManager, songs: inout [Song], database: SongDatabaseManager?) {
