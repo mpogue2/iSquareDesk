@@ -758,7 +758,7 @@ struct ContentView: View {
         case "xtras":
             return Color(hex: "#9C1F00")
         case "vocals":
-            return Color(hex: "#9C1F00")
+            return Color(hex: "#AB6900")
         default:
             return .primary
         }
