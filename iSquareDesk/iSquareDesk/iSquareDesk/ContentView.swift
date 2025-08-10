@@ -196,14 +196,14 @@ struct ContentView: View {
                                     }) {
                                         Image(systemName: "stop.fill")
                                             .font(.system(size: 14))
-                                            .foregroundColor(isLoadingCurrentSong ? .gray : .black)
+                                            .foregroundColor((isLoadingCurrentSong || currentSongPath.isEmpty) ? .gray : .black)
                                             .frame(width: 40, height: 40)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 6)
                                                     .stroke(Color.black, lineWidth: 1)
                                             )
                                     }
-                                    .disabled(isLoadingCurrentSong)
+                                    .disabled(isLoadingCurrentSong || currentSongPath.isEmpty)
                                     
                                     Button(action: {
                                         if audioProcessor.isPlaying {
@@ -222,7 +222,7 @@ struct ContentView: View {
                                         ZStack {
                                             Image(systemName: audioProcessor.isPlaying ? "pause.fill" : "play.fill")
                                                 .font(.system(size: 14))
-                                                .foregroundColor(isLoadingCurrentSong ? .clear : .black)
+                                                .foregroundColor(isLoadingCurrentSong ? .clear : ((isLoadingCurrentSong || currentSongPath.isEmpty) ? .gray : .black))
                                                 .frame(width: 40, height: 40)
                                             
                                             if isLoadingCurrentSong {
@@ -236,7 +236,7 @@ struct ContentView: View {
                                                 .stroke(Color.black, lineWidth: 1)
                                         )
                                     }
-                                    .disabled(isLoadingCurrentSong)
+                                    .disabled(isLoadingCurrentSong || currentSongPath.isEmpty)
                                 }
                                 
                                 GeometryReader { geometry in
