@@ -112,6 +112,7 @@
 			);
 			name = iSquareDesk;
 			packageProductDependencies = (
+				9F39673D2E485F990052A40D /* GRDB */,
 			);
 			productName = iSquareDesk;
 			productReference = 9F7898C62E45AF5400645DF4 /* iSquareDesk.app */;
@@ -195,6 +196,9 @@
 			);
 			mainGroup = 9F7898BD2E45AF5400645DF4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9F39673C2E485F990052A40D /* XCRemoteSwiftPackageReference "GRDB" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9F7898C72E45AF5400645DF4 /* Products */;
 			projectDirPath = "";
@@ -570,6 +574,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9F39673C2E485F990052A40D /* XCRemoteSwiftPackageReference "GRDB" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.6.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9F39673D2E485F990052A40D /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9F39673C2E485F990052A40D /* XCRemoteSwiftPackageReference "GRDB" */;
+			productName = GRDB;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9F7898BE2E45AF5400645DF4 /* Project object */;
 }

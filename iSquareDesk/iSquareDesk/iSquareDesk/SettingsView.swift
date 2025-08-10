@@ -60,6 +60,12 @@ struct SettingsView: View {
                     .padding(.vertical, 8)
                 }
                 
+                Section(header: Text("Developer Tools")) {
+                    NavigationLink(destination: DatabaseTestView()) {
+                        Label("Database Tests", systemImage: "cylinder.split.1x2")
+                    }
+                }
+                
                 Section(header: Text("About")) {
                     HStack {
                         Text("Version")
