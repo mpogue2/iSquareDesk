@@ -36,7 +36,7 @@ struct CustomSliderStyle: ViewModifier {
                     // Top triangle (pointing down)
                     ZStack {
                         Path { path in
-                            path.move(to: CGPoint(x: 6, y: 5))
+                            path.move(to: CGPoint(x: 6, y: 6))
                             path.addLine(to: CGPoint(x: 0, y: 0))
                             path.addLine(to: CGPoint(x: 12, y: 0))
                             path.closeSubpath()
@@ -44,39 +44,39 @@ struct CustomSliderStyle: ViewModifier {
                         .fill(Color.green)
                         
                         Path { path in
-                            path.move(to: CGPoint(x: 6, y: 5))
+                            path.move(to: CGPoint(x: 6, y: 6))
                             path.addLine(to: CGPoint(x: 0, y: 0))
                             path.addLine(to: CGPoint(x: 12, y: 0))
                             path.closeSubpath()
                         }
                         .stroke(Color.black, lineWidth: 0.5)
                     }
-                    .frame(width: 12, height: 5)
+                    .frame(width: 12, height: 6)
                     
                     // Vertical green line
                     Rectangle()
                         .fill(Color.green)
-                        .frame(width: 2, height: 20)
+                        .frame(width: 2, height: 24)
                     
                     // Bottom triangle (pointing up)
                     ZStack {
                         Path { path in
                             path.move(to: CGPoint(x: 6, y: 0))
-                            path.addLine(to: CGPoint(x: 0, y: 5))
-                            path.addLine(to: CGPoint(x: 12, y: 5))
+                            path.addLine(to: CGPoint(x: 0, y: 6))
+                            path.addLine(to: CGPoint(x: 12, y: 6))
                             path.closeSubpath()
                         }
                         .fill(Color.green)
                         
                         Path { path in
                             path.move(to: CGPoint(x: 6, y: 0))
-                            path.addLine(to: CGPoint(x: 0, y: 5))
-                            path.addLine(to: CGPoint(x: 12, y: 5))
+                            path.addLine(to: CGPoint(x: 0, y: 6))
+                            path.addLine(to: CGPoint(x: 12, y: 6))
                             path.closeSubpath()
                         }
                         .stroke(Color.black, lineWidth: 0.5)
                     }
-                    .frame(width: 12, height: 5)
+                    .frame(width: 12, height: 6)
                 }
                 .position(x: handlePosition, y: geometry.size.height / 2)
                 
