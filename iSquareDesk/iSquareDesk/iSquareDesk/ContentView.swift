@@ -809,9 +809,9 @@ struct ContentView: View {
                     }
                     
                     let fileExtension = file.pathExtension.lowercased()
-                    print("📁 Found file: \(file.lastPathComponent) (extension: \(fileExtension))")
+//                    print("📁 Found file: \(file.lastPathComponent) (extension: \(fileExtension))")
                     if fileExtension == "mp3" || fileExtension == "m4a" {
-                        print("🎵 Processing audio file: \(file.lastPathComponent)")
+//                        print("🎵 Processing audio file: \(file.lastPathComponent)")
                         let type = relativePath.components(separatedBy: "/").first ?? "unknown"
                         let filenameWithoutExtension = file.lastPathComponent.replacingOccurrences(of: ".\(fileExtension)", with: "")
                         
