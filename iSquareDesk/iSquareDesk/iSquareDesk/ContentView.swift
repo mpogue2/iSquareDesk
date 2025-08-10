@@ -95,6 +95,7 @@ struct ContentView: View {
     @State private var currentSecond: Double = 0
     @State private var clockTime: String = "12:00"
     @StateObject private var audioProcessor = AudioProcessor()
+    @State private var songDatabase: SongDatabaseManager?
     @State private var currentSongPath: String = ""
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
@@ -494,10 +495,10 @@ struct ContentView: View {
         }
         .onAppear {
             print("🚀 onAppear: Starting...")
+            
             establishSecurityScopedAccess { [self] in
-                // This callback runs after security access is established
+                songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
                 loadSongs()
-                print("🚀 onAppear: loadSongs() called after security access")
             }
             print("🚀 onAppear: Security access initiated")
             uiUpdate() // Initial update
@@ -513,8 +514,9 @@ struct ContentView: View {
                 uiUpdate()
             }
         }
-        .onChange(of: musicFolder) { _, _ in
+        .onChange(of: musicFolder) { _, newMusicFolder in
             establishSecurityScopedAccess {
+                songDatabase = SongDatabaseManager(musicFolderPath: newMusicFolder)
                 loadSongs()
             }
         }
@@ -525,6 +527,7 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshSongList"))) { _ in
             establishSecurityScopedAccess {
+                songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
                 loadSongs()
             }
         }
@@ -601,7 +604,9 @@ struct ContentView: View {
             print("loadSongs: Scanning \(musicURL) on background thread")
             
             var tempSongs: [Song] = []
-            scanDirectoryRecursively(url: musicURL, fileManager: fileManager, songs: &tempSongs)
+            
+            
+            scanDirectoryRecursively(url: musicURL, fileManager: fileManager, songs: &tempSongs, database: self.songDatabase)
             
             // Update UI on main thread
             DispatchQueue.main.async {
@@ -781,7 +786,7 @@ struct ContentView: View {
         }
     }
     
-    func scanDirectoryRecursively(url: URL, fileManager: FileManager, songs: inout [Song]) {
+    func scanDirectoryRecursively(url: URL, fileManager: FileManager, songs: inout [Song], database: SongDatabaseManager?) {
         do {
             print("🔍 Scanning directory: \(url.path)")
             let files = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
@@ -800,7 +805,7 @@ struct ContentView: View {
                     }
                     // Recursively scan subdirectories
                     print("🔄 Recursing into: \(file.lastPathComponent)")
-                    scanDirectoryRecursively(url: file, fileManager: fileManager, songs: &songs)
+                    scanDirectoryRecursively(url: file, fileManager: fileManager, songs: &songs, database: database)
                 } else {
                     // Check if file is in soundfx folder (anywhere in the path)
                     let relativePath = String(file.path.dropFirst(musicFolder.count + 1))
@@ -817,12 +822,25 @@ struct ContentView: View {
                         
                         let parsed = parseFilename(filenameWithoutExtension)
                         
+                        // Look up pitch and tempo from database
+                        var songPitch = 0
+                        var songTempo = 125
+                        
+                        if let db = database {
+                            // Get relative path for database lookup
+                            let dbLookupPath = relativePath
+                            if let dbValues = db.getPitchAndTempo(for: dbLookupPath) {
+                                songPitch = dbValues.pitch
+                                songTempo = dbValues.tempo
+                            }
+                        }
+                        
                         let song = Song(
                             type: type,
                             label: parsed.label,
                             title: parsed.title,
-                            pitch: 0,
-                            tempo: 125,
+                            pitch: songPitch,
+                            tempo: songTempo,
                             originalFilePath: file.path
                         )
                         songs.append(song)
