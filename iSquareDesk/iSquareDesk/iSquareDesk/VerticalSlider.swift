@@ -37,6 +37,13 @@ struct VerticalSlider: View {
             }
             return "\(Int(value * 100))"
         }
+        if label == "Pitch" {
+            let intValue = Int(value)
+            if intValue > 0 {
+                return "+\(intValue)"
+            }
+            return "\(intValue)"
+        }
         return "\(Int(value))"
     }
     
