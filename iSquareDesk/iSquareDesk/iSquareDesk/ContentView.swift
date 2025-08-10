@@ -99,24 +99,31 @@ struct ContentView: View {
     @State private var currentSongPath: String = ""
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
+    @State private var searchText: String = ""
     
-    var sortedSongs: [Song] {
-    songs.sorted { (song1: Song, song2: Song) in
-        let result: Bool
-        switch sortColumn {
-        case .type:
-            result = song1.type.localizedCaseInsensitiveCompare(song2.type) == .orderedAscending
-        case .label:
-            result = song1.label.localizedCaseInsensitiveCompare(song2.label) == .orderedAscending
-        case .title:
-            result = song1.title.localizedCaseInsensitiveCompare(song2.title) == .orderedAscending
-        case .pitch:
-            result = song1.pitch < song2.pitch
-        case .tempo:
-            result = song1.tempo < song2.tempo
+    var filteredSongs: [Song] {
+        let filtered = searchText.isEmpty ? songs : songs.filter { song in
+            song.type.localizedCaseInsensitiveContains(searchText) ||
+            song.title.localizedCaseInsensitiveContains(searchText) ||
+            song.label.localizedCaseInsensitiveContains(searchText)
         }
-        return sortOrder == .ascending ? result : !result
-    }
+        
+        return filtered.sorted { (song1: Song, song2: Song) in
+            let result: Bool
+            switch sortColumn {
+            case .type:
+                result = song1.type.localizedCaseInsensitiveCompare(song2.type) == .orderedAscending
+            case .label:
+                result = song1.label.localizedCaseInsensitiveCompare(song2.label) == .orderedAscending
+            case .title:
+                result = song1.title.localizedCaseInsensitiveCompare(song2.title) == .orderedAscending
+            case .pitch:
+                result = song1.pitch < song2.pitch
+            case .tempo:
+                result = song1.tempo < song2.tempo
+            }
+            return sortOrder == .ascending ? result : !result
+        }
     }
     
     var body: some View {
@@ -350,10 +357,23 @@ struct ContentView: View {
                 
                 // Bottom half: Song Table
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Song List")
-                        .font(.system(size: 20, weight: .medium))
-                        .padding(.horizontal, 10)
-                        .padding(.top, 10)
+                    HStack {
+                        TextField("Search...", text: $searchText)
+                            .font(.system(size: 20, weight: .medium))
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        if !searchText.isEmpty {
+                            Button(action: {
+                                searchText = ""
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.gray)
+                                    .font(.system(size: 20))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
                     
                     // Table Header
                     HStack {
@@ -434,7 +454,7 @@ struct ContentView: View {
                     // Song List with iOS scroll indicators
                     ScrollView(.vertical) {
                         LazyVStack(spacing: 0) {
-                            ForEach(sortedSongs) { song in
+                            ForEach(filteredSongs) { song in
                                 HStack {
                                     Text(song.type)
                                         .font(.system(size: 21.175))
