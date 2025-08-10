@@ -39,6 +39,9 @@ class AudioProcessor: ObservableObject {
     private var peakLevel: Float = 0.0
     private let levelDecayRate: Float = 0.855 // Smooth decay for VU meter (10% faster decay)
     
+    // Track paused state to distinguish resume-from-pause vs. fresh play
+    private var wasPaused: Bool = false
+    
     // Volume control
     var volume: Float = 1.0 {
         didSet {
@@ -228,7 +231,21 @@ class AudioProcessor: ObservableObject {
         guard let audioFile = audioFile,
               let audioFormat = audioFormat else { return }
         
-        // Schedule the file for playback from current position
+        // If resuming from pause, do NOT reschedule; just resume playback
+        if wasPaused {
+            playerNode.play()
+            wasPaused = false
+            
+            // Update @Published property on main thread
+            DispatchQueue.main.async {
+                self.isPlaying = true
+            }
+            startDisplayTimer()
+            startLevelTimer()
+            return
+        }
+
+        // Fresh play: schedule the file for playback from current position
         if !isPlaying {
             // Track the seek position
             seekOffset = currentTime
@@ -275,6 +292,7 @@ class AudioProcessor: ObservableObject {
         
         stopDisplayTimer()
         startDecayTimer()
+        wasPaused = true
     }
     
     func stop() {
@@ -288,6 +306,7 @@ class AudioProcessor: ObservableObject {
         
         seekOffset = 0
         hasJustSeeked = false
+        wasPaused = false
         stopDisplayTimer()
         startDecayTimer()
     }
@@ -301,6 +320,7 @@ class AudioProcessor: ObservableObject {
         let wasPlaying = isPlaying
         playerNode.stop()
         isPlaying = false
+        wasPaused = false
         stopDisplayTimer()
 
         let newTime = max(0, min(time, duration))
