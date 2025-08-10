@@ -36,6 +36,13 @@ extension Color {
     }
 }
 
+struct SingingCallSection {
+    let name: String
+    let start: Float    // 0.0 to 1.0
+    let end: Float      // 0.0 to 1.0
+    let color: Color
+}
+
 struct Song: Identifiable {
     let id = UUID()
     let type: String
@@ -106,6 +113,7 @@ struct ContentView: View {
     @State private var currentSongLoop: Bool = false
     @State private var currentIntroPos: Float = 0.0
     @State private var currentOutroPos: Float = 1.0
+    @State private var isSingingCall: Bool = false
     
     var filteredSongs: [Song] {
         let filtered = searchText.isEmpty ? songs : songs.filter { song in
@@ -227,8 +235,26 @@ struct ContentView: View {
                                 
                                 GeometryReader { geometry in
                                     ZStack {
-                                        // Loop brackets overlay (behind slider handle)
-                                        if currentSongLoop && duration > 0 {
+                                        // Singing call colored sections (bottom layer)
+                                        if isSingingCall && duration > 0 {
+                                            let sections = calculateSingingCallSections(introPos: currentIntroPos, outroPos: currentOutroPos)
+                                            ForEach(sections.indices, id: \.self) { index in
+                                                let section = sections[index]
+                                                Rectangle()
+                                                    .fill(section.color)
+                                                    .frame(
+                                                        width: geometry.size.width * CGFloat(section.end - section.start),
+                                                        height: geometry.size.height * 0.3
+                                                    )
+                                                    .position(
+                                                        x: geometry.size.width * CGFloat(section.start + (section.end - section.start) / 2),
+                                                        y: geometry.size.height * 0.5
+                                                    )
+                                            }
+                                        }
+                                        
+                                        // Loop brackets overlay (behind slider handle, only for non-singing calls)
+                                        if !isSingingCall && currentSongLoop && duration > 0 {
                                             // Left bracket at intro position
                                             Text("[")
                                                 .font(.system(size: 36, weight: .bold))
@@ -690,6 +716,7 @@ struct ContentView: View {
         currentSongLoop = false
         currentIntroPos = 0.0
         currentOutroPos = 1.0
+        isSingingCall = false
         
         // Update UI state immediately
         currentTime = 0
@@ -699,8 +726,16 @@ struct ContentView: View {
         pitch = Double(song.pitch)
         audioProcessor.pitchSemitones = Float(song.pitch)
         
+        // Check if this is a singing call
+        isSingingCall = (song.type == "singing" || song.type == "vocals")
+        
         // Update loop settings
-        currentSongLoop = song.loop
+        if isSingingCall {
+            // For singing calls, disable looping regardless of database setting
+            currentSongLoop = false
+        } else {
+            currentSongLoop = song.loop
+        }
         currentIntroPos = song.introPos
         currentOutroPos = song.outroPos
         
@@ -831,6 +866,33 @@ struct ContentView: View {
         }
     }
     
+    func calculateSingingCallSections(introPos: Float, outroPos: Float) -> [SingingCallSection] {
+        let D = outroPos - introPos
+        
+        // Handle edge case where intro and outro are the same
+        guard D > 0 else {
+            return [SingingCallSection(name: "FULL SONG", start: 0.0, end: 1.0, color: Color(red: 154/255, green: 185/255, blue: 199/255))]
+        }
+        
+        // Define colors
+        let introTagColor = Color(red: 154/255, green: 185/255, blue: 199/255)  // INTRO/TAG
+        let openerBreakCloserColor = Color(red: 201/255, green: 125/255, blue: 122/255)  // OPENER/BREAK/CLOSER
+        let figure1And3Color = Color(red: 118/255, green: 186/255, blue: 178/255)  // FIGURE 1/3
+        let figure2And4Color = Color(red: 143/255, green: 154/255, blue: 206/255)  // FIGURE 2/4
+        
+        return [
+            SingingCallSection(name: "INTRO", start: 0.0, end: introPos, color: introTagColor),
+            SingingCallSection(name: "OPENER", start: introPos, end: introPos + D/7, color: openerBreakCloserColor),
+            SingingCallSection(name: "FIGURE 1", start: introPos + D/7, end: introPos + 2*D/7, color: figure1And3Color),
+            SingingCallSection(name: "FIGURE 2", start: introPos + 2*D/7, end: introPos + 3*D/7, color: figure2And4Color),
+            SingingCallSection(name: "BREAK", start: introPos + 3*D/7, end: introPos + 4*D/7, color: openerBreakCloserColor),
+            SingingCallSection(name: "FIGURE 3", start: introPos + 4*D/7, end: introPos + 5*D/7, color: figure1And3Color),
+            SingingCallSection(name: "FIGURE 4", start: introPos + 5*D/7, end: introPos + 6*D/7, color: figure2And4Color),
+            SingingCallSection(name: "CLOSER", start: introPos + 6*D/7, end: introPos + 7*D/7, color: openerBreakCloserColor),
+            SingingCallSection(name: "TAG", start: introPos + 7*D/7, end: 1.0, color: introTagColor)
+        ]
+    }
+    
     func scanDirectoryRecursively(url: URL, fileManager: FileManager, songs: inout [Song], database: SongDatabaseManager?) {
         do {
             let files = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
@@ -864,8 +926,8 @@ struct ContentView: View {
                         var songPitch = 0
                         var songTempo = 125
                         var songLoop = false
-                        var songIntroPos: Float = 0.0
-                        var songOutroPos: Float = 1.0
+                        var songIntroPos: Float = 0.05  // Default for songs not in database
+                        var songOutroPos: Float = 0.95  // Default for songs not in database
                         
                         if let db = database {
                             // Get relative path for database lookup
