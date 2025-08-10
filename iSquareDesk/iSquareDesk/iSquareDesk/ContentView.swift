@@ -9,6 +9,85 @@ import SwiftUI
 import Foundation
 import AVFoundation
 
+struct CustomSliderStyle: ViewModifier {
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let onEditingChanged: (Bool) -> Void
+    
+    func body(content: Content) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                // Track
+                Rectangle()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(height: 4)
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                
+                // Filled portion
+                Rectangle()
+                    .fill(Color.gray.opacity(0.6))
+                    .frame(width: geometry.size.width * CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)), height: 4)
+                    .position(x: geometry.size.width * CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) / 2, y: geometry.size.height / 2)
+                
+                // Custom handle - green line with triangles
+                let handlePosition = geometry.size.width * CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
+                
+                VStack(spacing: 0) {
+                    // Top triangle (pointing down)
+                    ZStack {
+                        Path { path in
+                            path.move(to: CGPoint(x: 6, y: 5))
+                            path.addLine(to: CGPoint(x: 0, y: 0))
+                            path.addLine(to: CGPoint(x: 12, y: 0))
+                            path.closeSubpath()
+                        }
+                        .fill(Color.green)
+                        
+                        Path { path in
+                            path.move(to: CGPoint(x: 6, y: 5))
+                            path.addLine(to: CGPoint(x: 0, y: 0))
+                            path.addLine(to: CGPoint(x: 12, y: 0))
+                            path.closeSubpath()
+                        }
+                        .stroke(Color.black, lineWidth: 0.5)
+                    }
+                    .frame(width: 12, height: 5)
+                    
+                    // Vertical green line
+                    Rectangle()
+                        .fill(Color.green)
+                        .frame(width: 2, height: 20)
+                    
+                    // Bottom triangle (pointing up)
+                    ZStack {
+                        Path { path in
+                            path.move(to: CGPoint(x: 6, y: 0))
+                            path.addLine(to: CGPoint(x: 0, y: 5))
+                            path.addLine(to: CGPoint(x: 12, y: 5))
+                            path.closeSubpath()
+                        }
+                        .fill(Color.green)
+                        
+                        Path { path in
+                            path.move(to: CGPoint(x: 6, y: 0))
+                            path.addLine(to: CGPoint(x: 0, y: 5))
+                            path.addLine(to: CGPoint(x: 12, y: 5))
+                            path.closeSubpath()
+                        }
+                        .stroke(Color.black, lineWidth: 0.5)
+                    }
+                    .frame(width: 12, height: 5)
+                }
+                .position(x: handlePosition, y: geometry.size.height / 2)
+                
+                // Invisible slider for interaction
+                Slider(value: $value, in: range, onEditingChanged: onEditingChanged)
+                    .opacity(0.001) // Nearly invisible but still interactive
+            }
+        }
+    }
+}
+
 extension Color {
     init(hex: String) {
     let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -280,15 +359,19 @@ struct ContentView: View {
                                                 )
                                         }
                                         
-                                        Slider(value: $seekTime, in: 0...max(1.0, audioProcessor.duration)) { editing in
-                                            isUserSeeking = editing
-                                            if !editing {
-                                                // User finished interacting with slider - seek to position
-                                                print("Seeking to: \(seekTime)")
-                                                audioProcessor.seek(to: seekTime)
-                                            }
-                                        }
-                                        .accentColor(.gray)
+                                        Color.clear
+                                            .modifier(CustomSliderStyle(
+                                                value: $seekTime,
+                                                range: 0...max(1.0, audioProcessor.duration),
+                                                onEditingChanged: { editing in
+                                                    isUserSeeking = editing
+                                                    if !editing {
+                                                        // User finished interacting with slider - seek to position
+                                                        print("Seeking to: \(seekTime)")
+                                                        audioProcessor.seek(to: seekTime)
+                                                    }
+                                                }
+                                            ))
                                         .onTapGesture { location in
                                             // Calculate the position as a percentage of the slider width
                                             let percentage = location.x / geometry.size.width
