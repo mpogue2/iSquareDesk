@@ -654,7 +654,6 @@ struct ContentView: View {
         
         // Move heavy file loading to background thread
         DispatchQueue.global(qos: .userInitiated).async { [self] in
-            let startTime = CFAbsoluteTimeGetCurrent()
             let audioURL = URL(fileURLWithPath: song.originalFilePath)
             
             // Check if this song is still the one we want to load (user might have clicked another)
@@ -664,19 +663,14 @@ struct ContentView: View {
             }
             
             if FileManager.default.fileExists(atPath: audioURL.path) {
-                let fileExistsTime = CFAbsoluteTimeGetCurrent()
-                
                 // Check file attributes (size, download status)
                 do {
-                    let attributes = try FileManager.default.attributesOfItem(atPath: audioURL.path)
+                    let _ = try FileManager.default.attributesOfItem(atPath: audioURL.path)
                 } catch {
                     print("🎵 ⚠️ Could not get file attributes: \(error)")
                 }
                 
-                let audioLoadStart = CFAbsoluteTimeGetCurrent()
-                
                 if audioProcessor.loadAudioFile(from: audioURL) {
-                    let audioLoadEnd = CFAbsoluteTimeGetCurrent()
                     DispatchQueue.main.async {
                         // Double-check we're still loading the right song
                         guard self.currentSongTitle == song.title else {

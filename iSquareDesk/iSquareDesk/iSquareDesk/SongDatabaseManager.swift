@@ -41,8 +41,6 @@ class SongDatabaseManager {
             return
         }
         
-        let startTime = CFAbsoluteTimeGetCurrent()
-        
         do {
             try dbQueue.read { db in
                 // Load all songs in one query
