@@ -59,7 +59,7 @@ class AudioProcessor: ObservableObject {
     var pitchSemitones: Float = 0.0 {
         didSet {
             pitchNode.pitch = pitchSemitones * 100.0 // AVAudioUnitTimePitch uses cents (100 cents = 1 semitone)
-            print("Pitch changed to \(pitchSemitones) semitones (\(pitchNode.pitch) cents)")
+// Pitch updated
         }
     }
     
@@ -70,7 +70,7 @@ class AudioProcessor: ObservableObject {
             // Calculate rate multiplier (1.0 = original speed, 0.5 = half speed, 2.0 = double speed)
             let rateMultiplier = tempoBPM / originalBPM
             pitchNode.rate = rateMultiplier
-            print("Tempo changed to \(tempoBPM) BPM (rate: \(rateMultiplier)x)")
+// Tempo updated
         }
     }
     
@@ -160,13 +160,13 @@ class AudioProcessor: ObservableObject {
             } else {
                 engine.connect(monoConverterNode, to: engine.mainMixerNode, format: nil)
             }
-            print("Audio graph: Mono mode with pitch and EQ processing")
+// Audio graph configured for mono
         } else {
             // For stereo: player -> pitch -> EQ -> main mixer
             engine.connect(playerNode, to: pitchNode, format: nil)
             engine.connect(pitchNode, to: eqNode, format: nil)
             engine.connect(eqNode, to: engine.mainMixerNode, format: nil)
-            print("Audio graph: Stereo mode with pitch and EQ processing")
+// Audio graph configured for stereo
         }
     }
     

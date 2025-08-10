@@ -494,15 +494,11 @@ struct ContentView: View {
             SettingsView()
         }
         .onAppear {
-            print("🚀 onAppear: Starting...")
-            
             establishSecurityScopedAccess { [self] in
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
                 loadSongs()
             }
-            print("🚀 onAppear: Security access initiated")
             uiUpdate() // Initial update
-            print("🚀 onAppear: Completed")
             
             // Set initial audio processor states
             audioProcessor.forceMono = forceMono
@@ -594,14 +590,12 @@ struct ContentView: View {
     }
     
     func loadSongs() {
-        print("loadSongs: Starting...")
         isLoadingSongs = true
         
         // Move heavy scanning work to background thread
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             let fileManager = FileManager.default
             let musicURL = URL(fileURLWithPath: musicFolder)
-            print("loadSongs: Scanning \(musicURL) on background thread")
             
             var tempSongs: [Song] = []
             
@@ -612,13 +606,11 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 self.songs = tempSongs
                 self.isLoadingSongs = false
-                print("loadSongs: Completed! Found \(self.songs.count) total songs")
             }
         }
     }
     
     func loadSong(_ song: Song) {
-        print("🎵 Loading song: \(song.title) - Starting...")
         currentSongTitle = song.title
         
         // Set loading state - this will disable play/stop buttons
@@ -642,7 +634,6 @@ struct ContentView: View {
         // Move heavy file loading to background thread
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             let startTime = CFAbsoluteTimeGetCurrent()
-            print("🎵 Loading audio file on background thread...")
             let audioURL = URL(fileURLWithPath: song.originalFilePath)
             
             // Check if this song is still the one we want to load (user might have clicked another)
@@ -651,27 +642,20 @@ struct ContentView: View {
                 return
             }
             
-            print("🎵 📁 Checking file existence: \(audioURL.path)")
             if FileManager.default.fileExists(atPath: audioURL.path) {
                 let fileExistsTime = CFAbsoluteTimeGetCurrent()
-                print("🎵 ✅ File exists check took: \(String(format: "%.3f", fileExistsTime - startTime))s")
                 
                 // Check file attributes (size, download status)
                 do {
                     let attributes = try FileManager.default.attributesOfItem(atPath: audioURL.path)
-                    if let fileSize = attributes[.size] as? UInt64 {
-                        print("🎵 📊 File size: \(ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file))")
-                    }
                 } catch {
                     print("🎵 ⚠️ Could not get file attributes: \(error)")
                 }
                 
-                print("🎵 🎼 Starting AVAudioFile loading...")
                 let audioLoadStart = CFAbsoluteTimeGetCurrent()
                 
                 if audioProcessor.loadAudioFile(from: audioURL) {
                     let audioLoadEnd = CFAbsoluteTimeGetCurrent()
-                    print("🎵 🎼 AVAudioFile loading took: \(String(format: "%.3f", audioLoadEnd - audioLoadStart))s")
                     DispatchQueue.main.async {
                         // Double-check we're still loading the right song
                         guard self.currentSongTitle == song.title else {
@@ -682,9 +666,6 @@ struct ContentView: View {
                         self.currentSongPath = audioURL.path
                         self.duration = audioProcessor.duration
                         self.isLoadingCurrentSong = false // Enable play/stop buttons
-                        let totalTime = CFAbsoluteTimeGetCurrent() - startTime
-                        print("🎵 ✅ Song loaded and ready: \(song.title)")
-                        print("🎵 ⏱️ Total loading time: \(String(format: "%.3f", totalTime))s")
                     }
                 } else {
                     DispatchQueue.main.async {
@@ -703,20 +684,16 @@ struct ContentView: View {
     
     
     func establishSecurityScopedAccess(completion: @escaping () -> Void = {}) {
-        print("🔒 establishSecurityScopedAccess: Starting...")
         // Stop any existing security-scoped access first
         stopSecurityScopedAccess()
-        print("🔒 establishSecurityScopedAccess: Stopped existing access")
         
         guard !musicFolderURL.isEmpty,
               let bookmarkData = Data(base64Encoded: musicFolderURL) else {
-            print("🔒 establishSecurityScopedAccess: No bookmark data or empty URL - using current musicFolder: \(musicFolder)")
             DispatchQueue.main.async {
                 completion()
             }
             return
         }
-        print("🔒 establishSecurityScopedAccess: Got bookmark data")
         
         // Use a much shorter timeout (3 seconds) and fall back quickly
         let timeoutItem = DispatchWorkItem {
@@ -730,7 +707,6 @@ struct ContentView: View {
         
         // Try bookmark resolution with quick fallback
         DispatchQueue.global(qos: .userInitiated).async { [self] in
-            print("🔒 Attempting bookmark resolution with 3-second timeout...")
             
             do {
                 var isStale = false
@@ -742,7 +718,7 @@ struct ContentView: View {
                 DispatchQueue.main.async {
                     if url.startAccessingSecurityScopedResource() {
                         self.securityScopedURL = url
-                        print("🔒 ✅ Successfully established security-scoped access to: \(url.path)")
+// Security access established
                         self.musicFolder = url.path
                     } else {
                         print("🔒 ❌ Failed to start accessing security-scoped resource, using current path")
@@ -788,23 +764,18 @@ struct ContentView: View {
     
     func scanDirectoryRecursively(url: URL, fileManager: FileManager, songs: inout [Song], database: SongDatabaseManager?) {
         do {
-            print("🔍 Scanning directory: \(url.path)")
             let files = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
-            print("📂 Found \(files.count) items in directory")
             
             for file in files {
                 var isDirectory: ObjCBool = false
                 fileManager.fileExists(atPath: file.path, isDirectory: &isDirectory)
                 
                 if isDirectory.boolValue {
-                    print("📁 Found subdirectory: \(file.lastPathComponent)")
                     // Skip soundfx folder
                     if file.lastPathComponent.lowercased() == "soundfx" {
-                        print("⏭️ Skipping soundfx folder")
                         continue
                     }
                     // Recursively scan subdirectories
-                    print("🔄 Recursing into: \(file.lastPathComponent)")
                     scanDirectoryRecursively(url: file, fileManager: fileManager, songs: &songs, database: database)
                 } else {
                     // Check if file is in soundfx folder (anywhere in the path)
@@ -814,9 +785,7 @@ struct ContentView: View {
                     }
                     
                     let fileExtension = file.pathExtension.lowercased()
-//                    print("📁 Found file: \(file.lastPathComponent) (extension: \(fileExtension))")
                     if fileExtension == "mp3" || fileExtension == "m4a" {
-//                        print("🎵 Processing audio file: \(file.lastPathComponent)")
                         let type = relativePath.components(separatedBy: "/").first ?? "unknown"
                         let filenameWithoutExtension = file.lastPathComponent.replacingOccurrences(of: ".\(fileExtension)", with: "")
                         
@@ -844,11 +813,6 @@ struct ContentView: View {
                             originalFilePath: file.path
                         )
                         songs.append(song)
-                        
-                        // Print progress every 100 songs
-                        if songs.count % 100 == 0 {
-                            print("Found \(songs.count) songs so far...")
-                        }
                     }
                 }
             }
