@@ -369,7 +369,7 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        .frame(width: 80, alignment: .leading)
+                        .frame(width: 100, alignment: .leading)
                         
                         Button(action: { toggleSort(.label) }) {
                             HStack {
@@ -439,7 +439,7 @@ struct ContentView: View {
                                     Text(song.type)
                                         .font(.system(size: 21.175))
                                         .foregroundColor(getTypeColor(for: song.type))
-                                        .frame(width: 80, alignment: .leading)
+                                        .frame(width: 100, alignment: .leading)
                                     
                                     Text(song.label)
                                         .font(.system(size: 21.175))
@@ -756,6 +756,8 @@ struct ContentView: View {
         case "singing":
             return Color(hex: "#00AF5C")
         case "xtras":
+            return Color(hex: "#9C1F00")
+        case "vocals":
             return Color(hex: "#9C1F00")
         default:
             return .primary
