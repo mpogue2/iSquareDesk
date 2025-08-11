@@ -69,7 +69,7 @@ struct VerticalSlider: View {
             
             GeometryReader { geometry in
                 ZStack(alignment: .bottom) {
-                    // Track
+                    // Track background
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color.gray.opacity(0.3))
                         .frame(width: 6)
@@ -95,10 +95,27 @@ struct VerticalSlider: View {
                                 y: geometry.size.height - (CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
                             )
                     } else {
-                        // Regular fill for non-VU mode
+                        // Regular vein for Pitch/Tempo: base vein is #919191, highlight from center to handle is #009CFF
+                        let baseVein = Color(hex: "#DDDDDF")
+                        let activeVein = Color(hex: "#009CFF")
+
+                        // Draw base vein across full height
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.gray)
-                            .frame(width: 6, height: CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound)) * geometry.size.height)
+                            .fill(baseVein)
+                            .frame(width: 6)
+
+                        // Compute handle position and center
+                        let normalized = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
+                        let handleY = 10 + (1 - normalized) * (geometry.size.height - 20)
+                        let centerY = geometry.size.height / 2
+                        let highlightHeight = abs(centerY - handleY)
+                        let highlightMidY = min(centerY, handleY) + (highlightHeight / 2)
+
+                        // Draw active segment from center to handle position
+                        Rectangle()
+                            .fill(activeVein)
+                            .frame(width: 6, height: max(0, highlightHeight))
+                            .position(x: geometry.size.width / 2, y: highlightMidY)
                     }
                     
                     // Thumb (positioned with 10px margin from top and bottom)
