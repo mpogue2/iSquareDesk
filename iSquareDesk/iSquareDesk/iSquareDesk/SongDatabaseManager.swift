@@ -144,5 +144,23 @@ class SongDatabaseManager {
     func getCacheStats() -> (loaded: Bool, count: Int) {
         return (loaded: isCacheLoaded, count: songCache.count)
     }
-    
+
+    /// Fetch last_cuesheet for a given relative path (reads DB on demand)
+    func getLastCuesheet(for relativePath: String) -> String? {
+        let dbFilename = "/\(relativePath)"
+        guard let dbQueue = dbQueue else { return nil }
+        do {
+            return try dbQueue.read { db in
+                if let row = try Row.fetchOne(db, sql: "SELECT last_cuesheet FROM songs WHERE filename = ?", arguments: [dbFilename]) {
+                    let value: String? = row["last_cuesheet"]
+                    return value
+                }
+                return nil
+            }
+        } catch {
+            print("❌ Failed to fetch last_cuesheet: \(error)")
+            return nil
+        }
+    }
+
 }

@@ -202,6 +202,13 @@ struct ContentView: View {
     @State private var timeInTip: Double = 0
     @State private var isPatterSong: Bool = false
     @State private var tipStartTime: Date? = nil
+    @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay: Bool = false
+    @State private var didAutoSwitchOnThisSong: Bool = false
+    // Cuesheet state
+    @State private var cuesheetFiles: [String] = []
+    @State private var cuesheetSelectedIndex: Int? = nil
+    @State private var cuesheetHTML: String = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family: -apple-system, Helvetica; font-size: 18px; color: #111;\"><p>Select a cuesheet from the menu above.</p></body></html>"
+    @State private var cuesheetMatcher: CuesheetMatcher? = nil
     
     var filteredSongs: [Song] {
         let filtered = searchText.isEmpty ? songs : songs.filter { song in
@@ -314,6 +321,12 @@ struct ContentView: View {
                                             // Sync the audio processor's current time with the seek time before playing
                                             audioProcessor.currentTime = seekTime
                                             audioProcessor.play()
+
+                                            // Auto-switch to Cuesheet on first play for singing calls
+                                            if switchToCuesheetOnFirstPlay && isSingingCall && !didAutoSwitchOnThisSong {
+                                                bottomTab = 1
+                                                didAutoSwitchOnThisSong = true
+                                            }
                                             
                                             // Start tip timer if this is a patter song and timer hasn't started yet
                                             if isPatterSong && tipStartTime == nil {
@@ -698,7 +711,7 @@ struct ContentView: View {
                     .tag(0)
 
                     // Page 1: Cuesheet view
-                    CuesheetView()
+                    CuesheetView(files: cuesheetFiles, selectedIndex: $cuesheetSelectedIndex, htmlContent: cuesheetHTML)
                         .tag(1)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
@@ -733,6 +746,10 @@ struct ContentView: View {
             establishSecurityScopedAccess { [self] in
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
                 loadSongs()
+                // Build cuesheet index
+                let matcher = CuesheetMatcher(musicRoot: URL(fileURLWithPath: musicFolder))
+                matcher.buildPathStackCuesheets()
+                self.cuesheetMatcher = matcher
             }
             uiUpdate() // Initial update
             
@@ -750,6 +767,10 @@ struct ContentView: View {
             establishSecurityScopedAccess {
                 songDatabase = SongDatabaseManager(musicFolderPath: newMusicFolder)
                 loadSongs()
+                // Rebuild cuesheet index when folder changes
+                let matcher = CuesheetMatcher(musicRoot: URL(fileURLWithPath: newMusicFolder))
+                matcher.buildPathStackCuesheets()
+                self.cuesheetMatcher = matcher
             }
         }
         .onChange(of: musicFolderURL) { _, _ in
@@ -761,6 +782,16 @@ struct ContentView: View {
             establishSecurityScopedAccess {
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
                 loadSongs()
+            }
+        }
+        .onChange(of: cuesheetSelectedIndex) { _, newIndex in
+            // Load HTML for newly selected cuesheet
+            if let idx = newIndex, cuesheetFiles.indices.contains(idx) {
+                let display = cuesheetFiles[idx]
+                let url = URL(fileURLWithPath: self.musicFolder).appendingPathComponent(display)
+                if let data = try? Data(contentsOf: url), let html = String(data: data, encoding: .utf8) {
+                    self.cuesheetHTML = html
+                }
             }
         }
         .onReceive(audioProcessor.$currentTime) { time in
@@ -921,6 +952,7 @@ struct ContentView: View {
         
         // Check if this is a singing call
         isSingingCall = (song.type == "singing" || song.type == "vocals")
+        didAutoSwitchOnThisSong = false
         
         // Check if this is a patter song
         isPatterSong = (song.type == "patter")
@@ -978,6 +1010,8 @@ struct ContentView: View {
                         self.audioProcessor.tempoBPM = Float(song.tempo)
                         self.isLoadingCurrentSong = false // Enable play/stop buttons
                     }
+                    // Also update cuesheet matches (on background)
+                    updateCuesheetsForSong(songURL: audioURL, songType: song.type)
                 } else {
                     DispatchQueue.main.async {
                         self.isLoadingCurrentSong = false // Re-enable buttons even on failure
@@ -989,6 +1023,43 @@ struct ContentView: View {
                     self.isLoadingCurrentSong = false // Re-enable buttons even on failure
                     print("🎵 ❌ Audio file does not exist: \(audioURL.path)")
                 }
+            }
+        }
+    }
+
+    private func updateCuesheetsForSong(songURL: URL, songType: String) {
+        guard let matcher = self.cuesheetMatcher else {
+            DispatchQueue.main.async {
+                self.cuesheetFiles = []
+                self.cuesheetSelectedIndex = nil
+                self.cuesheetHTML = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family: -apple-system, Helvetica; font-size: 18px; color: #111;\"><p>Select a cuesheet from the menu above.</p></body></html>"
+            }
+            return
+        }
+        // Determine DB last_cuesheet for this song
+        let relativePath: String = {
+            let full = songURL.path
+            let root = self.musicFolder.hasSuffix("/") ? self.musicFolder : self.musicFolder + "/"
+            if full.hasPrefix(root) {
+                return String(full.dropFirst(root.count))
+            }
+            return songURL.lastPathComponent
+        }()
+        let last = self.songDatabase?.getLastCuesheet(for: relativePath)
+        let res = matcher.loadCuesheets(songFile: songURL, songType: songType, lastCuesheetAbsolutePath: last)
+        DispatchQueue.main.async {
+            self.cuesheetFiles = res.items
+            self.cuesheetSelectedIndex = res.selectedIndex
+            if let idx = res.selectedIndex, res.matches.indices.contains(idx) {
+                // Load HTML content from file
+                let url = res.matches[idx].url
+                if let data = try? Data(contentsOf: url), let html = String(data: data, encoding: .utf8) {
+                    self.cuesheetHTML = html
+                } else {
+                    self.cuesheetHTML = "<html><body><p>(Unable to load cuesheet)</p></body></html>"
+                }
+            } else {
+                self.cuesheetHTML = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family: -apple-system, Helvetica; font-size: 18px; color: #111;\"><p>(No cuesheet)</p></body></html>"
             }
         }
     }

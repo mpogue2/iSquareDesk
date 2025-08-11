@@ -25,9 +25,22 @@ struct HTMLView: UIViewRepresentable {
 }
 
 struct CuesheetView: View {
-    @State private var files: [String] = []
-    @State private var selectedFile: String = ""
-    @State private var htmlContent: String = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family: -apple-system, Helvetica; font-size: 18px; color: #111;\"><p>Select a cuesheet from the menu above.</p></body></html>"
+    let files: [String]
+    @Binding var selectedIndex: Int?
+    let htmlContent: String
+
+    private var selectionBinding: Binding<Int> {
+        Binding<Int>(
+            get: { selectedIndex ?? 0 },
+            set: { newVal in
+                if files.indices.contains(newVal) {
+                    selectedIndex = newVal
+                } else {
+                    selectedIndex = nil
+                }
+            }
+        )
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -35,12 +48,20 @@ struct CuesheetView: View {
             HStack {
                 Text("Cuesheet: ")
                     .font(.headline)
-                Picker("Cuesheet", selection: $selectedFile) {
-                    ForEach(files.isEmpty ? ["(no files)"] : files, id: \.self) { f in
-                        Text(f).tag(f)
+                if files.isEmpty {
+                    Picker("Cuesheet", selection: .constant(0)) {
+                        Text("(no files)").tag(0)
                     }
+                    .pickerStyle(.menu)
+                    .disabled(true)
+                } else {
+                    Picker("Cuesheet", selection: selectionBinding) {
+                        ForEach(Array(files.enumerated()), id: \.offset) { idx, f in
+                            Text(f).tag(idx)
+                        }
+                    }
+                    .pickerStyle(.menu)
                 }
-                .pickerStyle(.menu)
                 Spacer()
             }
             .padding(.horizontal, 10)
@@ -53,4 +74,3 @@ struct CuesheetView: View {
         }
     }
 }
-
