@@ -243,13 +243,13 @@ struct ContentView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 20)
-                .padding(.bottom, 10)
+//                .padding(.top, 20).background(Color.red)
+//                .padding(.bottom, 10).background(Color.green)
                 
                 // Top half: Controls (stationary, no horizontal scroll)
                 Group {
                     HStack(spacing: geometry.size.width > 1000 ? 20 : 10) {
-                        // Left side: About Time section
+                        // Left side: Title and seekBar section
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
                                 Text(currentSongTitle)
@@ -267,18 +267,18 @@ struct ContentView: View {
                                 }
                             }
                             
-                            // Orange line
+                            // Dark red line
                             Rectangle()
                                 .fill(Color.init(hex: "#9C0000"))
                                 .frame(height: 3)
                             
-                            // Time progress
+                            // Time-in-song and song duration
                             HStack {
                                 Spacer()
                                 Text("\(formatFullTime(seekTime)) / \(formatFullTime(duration))")
                                     .font(.system(size: 14, design: .monospaced))
                             }
-                            .padding(.top, 4)
+                            .padding(.top, 2)
                             
                             // Play controls and seekbar
                             HStack(spacing: 12) {
