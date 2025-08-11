@@ -566,31 +566,19 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         
-                        Button(action: { toggleSort(.pitch) }) {
-                            HStack {
-                                Text("Pitch")
-                                    .font(.system(size: 16.94, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                if sortColumn == .pitch {
-                                    Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 14.52))
-                                        .foregroundColor(.primary)
-                                }
-                            }
+                        // Pitch header (sorting disabled)
+                        HStack {
+                            Text("Pitch")
+                                .font(.system(size: 16.94, weight: .semibold))
+                                .foregroundColor(.primary)
                         }
                         .frame(width: 60, alignment: .center)
                         
-                        Button(action: { toggleSort(.tempo) }) {
-                            HStack {
-                                Text("Tempo")
-                                    .font(.system(size: 16.94, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                if sortColumn == .tempo {
-                                    Image(systemName: sortOrder == .ascending ? "chevron.up" : "chevron.down")
-                                        .font(.system(size: 14.52))
-                                        .foregroundColor(.primary)
-                                }
-                            }
+                        // Tempo header (sorting disabled)
+                        HStack {
+                            Text("Tempo")
+                                .font(.system(size: 16.94, weight: .semibold))
+                                .foregroundColor(.primary)
                         }
                         .frame(width: 76, alignment: .center)
                     }
