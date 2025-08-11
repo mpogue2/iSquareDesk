@@ -178,6 +178,8 @@ struct ContentView: View {
     @State private var songs: [Song] = []
     @State private var sortColumn: SortColumn = .type
     @State private var sortOrder: SortOrder = .ascending
+    // Stable sort chain: most-recent criterion first
+    @State private var sortCriteria: [(SortColumn, SortOrder)] = [(.type, .ascending)]
     @State private var currentSongTitle: String = ""
     @State private var currentHour: Double = 0
     @State private var currentMinute: Double = 0
@@ -200,22 +202,31 @@ struct ContentView: View {
             song.title.localizedCaseInsensitiveContains(searchText) ||
             song.label.localizedCaseInsensitiveContains(searchText)
         }
-        
-        return filtered.sorted { (song1: Song, song2: Song) in
-            let result: Bool
-            switch sortColumn {
-            case .type:
-                result = song1.type.localizedCaseInsensitiveCompare(song2.type) == .orderedAscending
-            case .label:
-                result = song1.label.localizedCaseInsensitiveCompare(song2.label) == .orderedAscending
-            case .title:
-                result = song1.title.localizedCaseInsensitiveCompare(song2.title) == .orderedAscending
-            case .pitch:
-                result = song1.pitch < song2.pitch
-            case .tempo:
-                result = song1.tempo < song2.tempo
+
+        // Build comparator using stable sort criteria (most recent first)
+        let criteria = sortCriteria.isEmpty ? [(.type, .ascending)] : sortCriteria
+        return filtered.sorted { (a: Song, b: Song) in
+            for (col, ord) in criteria {
+                let cmp: ComparisonResult
+                switch col {
+                case .type:
+                    cmp = a.type.localizedCaseInsensitiveCompare(b.type)
+                case .label:
+                    cmp = a.label.localizedCaseInsensitiveCompare(b.label)
+                case .title:
+                    cmp = a.title.localizedCaseInsensitiveCompare(b.title)
+                case .pitch:
+                    cmp = (a.pitch == b.pitch) ? .orderedSame : (a.pitch < b.pitch ? .orderedAscending : .orderedDescending)
+                case .tempo:
+                    cmp = (a.tempo == b.tempo) ? .orderedSame : (a.tempo < b.tempo ? .orderedAscending : .orderedDescending)
+                }
+                if cmp != .orderedSame {
+                    return ord == .ascending ? (cmp == .orderedAscending) : (cmp == .orderedDescending)
+                }
             }
-            return sortOrder == .ascending ? result : !result
+            // Final deterministic fallback by title
+            let tcmp = a.title.localizedCaseInsensitiveCompare(b.title)
+            return tcmp == .orderedAscending
         }
     }
     
@@ -755,12 +766,27 @@ struct ContentView: View {
     }
     
     func toggleSort(_ column: SortColumn) {
+        // Update sort order for the tapped column
+        var newOrder: SortOrder
         if sortColumn == column {
-            sortOrder = sortOrder == .ascending ? .descending : .ascending
+            newOrder = (sortOrder == .ascending) ? .descending : .ascending
         } else {
-            sortColumn = column
-            sortOrder = .ascending
+            newOrder = .ascending
         }
+
+        // Maintain stable chain: move this column to front with new order
+        if let idx = sortCriteria.firstIndex(where: { $0.0 == column }) {
+            sortCriteria.remove(at: idx)
+        }
+        sortCriteria.insert((column, newOrder), at: 0)
+
+        // Keep only the relevant columns in the chain (Type, Label, Title)
+        sortCriteria = sortCriteria.filter { crit in
+            switch crit.0 { case .type, .label, .title: return true; default: return false }
+        }
+
+        sortColumn = column
+        sortOrder = newOrder
     }
     
     func loadSongs() {
