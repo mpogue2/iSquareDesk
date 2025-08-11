@@ -356,22 +356,55 @@ struct ContentView: View {
                                         // Loop brackets overlay (behind slider handle, only for non-singing calls)
                                         if !isSingingCall && currentSongLoop && duration > 0 {
                                             // Left bracket at intro position
-                                            Text("[")
-                                                .font(.system(size: 36, weight: .bold))
-                                                .foregroundColor(.blue)
-                                                .position(
-                                                    x: geometry.size.width * CGFloat(currentIntroPos),
-                                                    y: geometry.size.height * 0.42
-                                                )
+                                            let leftX = round(geometry.size.width * CGFloat(currentIntroPos))
+                                            let bracketY = round(geometry.size.height * 0.42 + 4)  // Moved down by 4 pixels
+                                            let bracketHeight: CGFloat = 28  // 20 * 1.4 = 28
+                                            let bracketWidth: CGFloat = 8
+                                            
+                                            // Left bracket [
+                                            ZStack {
+                                                // Top horizontal line
+                                                Rectangle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: bracketWidth, height: 2)
+                                                    .position(x: round(leftX + bracketWidth/2), y: round(bracketY - bracketHeight/2))
+                                                
+                                                // Vertical line
+                                                Rectangle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: 2, height: bracketHeight)
+                                                    .position(x: round(leftX), y: round(bracketY))
+                                                
+                                                // Bottom horizontal line
+                                                Rectangle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: bracketWidth, height: 2)
+                                                    .position(x: round(leftX + bracketWidth/2), y: round(bracketY + bracketHeight/2))
+                                            }
                                             
                                             // Right bracket at outro position
-                                            Text("]")
-                                                .font(.system(size: 36, weight: .bold))
-                                                .foregroundColor(.blue)
-                                                .position(
-                                                    x: geometry.size.width * CGFloat(currentOutroPos),
-                                                    y: geometry.size.height * 0.42
-                                                )
+                                            let rightX = round(geometry.size.width * CGFloat(currentOutroPos))
+                                            
+                                            // Right bracket ]
+                                            ZStack {
+                                                // Top horizontal line
+                                                Rectangle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: bracketWidth, height: 2)
+                                                    .position(x: round(rightX - bracketWidth/2), y: round(bracketY - bracketHeight/2))
+                                                
+                                                // Vertical line
+                                                Rectangle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: 2, height: bracketHeight)
+                                                    .position(x: round(rightX), y: round(bracketY))
+                                                
+                                                // Bottom horizontal line
+                                                Rectangle()
+                                                    .fill(Color.blue)
+                                                    .frame(width: bracketWidth, height: 2)
+                                                    .position(x: round(rightX - bracketWidth/2), y: round(bracketY + bracketHeight/2))
+                                            }
                                         }
                                         
                                         Color.clear
