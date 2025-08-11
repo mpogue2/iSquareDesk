@@ -193,6 +193,7 @@ struct ContentView: View {
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
     @State private var showFolderPicker: Bool = false
+    @State private var bottomTab: Int = 0
     @State private var searchText: String = ""
     @State private var currentSongLoop: Bool = false
     @State private var currentIntroPos: Float = 0.0
@@ -516,12 +517,14 @@ struct ContentView: View {
                 .padding(.top, 10)
                 .frame(height: geometry.size.height * 0.45)
                 
-                // Bottom half: Song Table
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        TextField("Search...", text: $searchText)
-                            .font(.system(size: 20, weight: .medium))
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                // Bottom half: Pager (Song Table <-> Cuesheet)
+                TabView(selection: $bottomTab) {
+                    // Page 0: Song Table
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack {
+                            TextField("Search...", text: $searchText)
+                                .font(.system(size: 20, weight: .medium))
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
                         
                         if !searchText.isEmpty {
                             Button(action: {
@@ -649,7 +652,14 @@ struct ContentView: View {
                     }
                     .scrollIndicators(.visible)
                     .frame(maxHeight: .infinity)
+                    }
+                    .tag(0)
+
+                    // Page 1: Cuesheet view
+                    CuesheetView()
+                        .tag(1)
                 }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .frame(height: geometry.size.height * 0.47)
             }
             
