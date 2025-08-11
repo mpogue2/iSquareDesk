@@ -650,10 +650,10 @@ struct ContentView: View {
                     .scrollIndicators(.visible)
                     .frame(maxHeight: .infinity)
                 }
-                .frame(height: geometry.size.height * 0.45)
+                .frame(height: geometry.size.height * 0.47)
             }
             
-            // Gear icon overlay in bottom right corner
+            // Gear icon overlay near bottom-right, centered in white space below song list
             VStack {
                 Spacer()
                 HStack {
@@ -663,8 +663,9 @@ struct ContentView: View {
                             .font(.system(size: 20))
                             .foregroundColor(.gray)
                     }
-                    .padding(.trailing, 20)
-                    .padding(.bottom, 20)
+                    .padding(.trailing, 15)
+                    // Anchor near bottom-right with small margin
+                    .padding(.bottom, 1)
                 }
             }
         }
