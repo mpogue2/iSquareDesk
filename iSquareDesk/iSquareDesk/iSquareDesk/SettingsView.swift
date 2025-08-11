@@ -37,8 +37,9 @@ struct SettingsView: View {
                             }
                         
                         Button(action: { showingFolderPicker = true }) {
-                            Label("Select Folder", systemImage: "folder")
+                            Label("Select Folder", systemImage: "folder.fill")
                         }
+                        .labelStyle(.titleAndIcon)
                         .buttonStyle(.borderedProminent)
                         
                         Divider()
