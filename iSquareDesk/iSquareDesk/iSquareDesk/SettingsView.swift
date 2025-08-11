@@ -41,10 +41,6 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.borderedProminent)
                         
-                        Text("Future versions will support selecting folders from iCloud Drive")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
                         Divider()
                             .padding(.vertical, 8)
                         
