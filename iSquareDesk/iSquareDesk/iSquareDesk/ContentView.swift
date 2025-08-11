@@ -601,7 +601,8 @@ struct ContentView: View {
                     // Song List with iOS scroll indicators
                     ScrollView(.vertical) {
                         LazyVStack(spacing: 0) {
-                            ForEach(filteredSongs) { song in
+                            ForEach(Array(filteredSongs.enumerated()), id: \.element.id) { index, song in
+                                let stripeColor = (index % 2 == 0) ? Color(hex: "#F5F5F7") : Color.clear
                                 HStack {
                                     Text(song.type)
                                         .font(.system(size: 21.175))
@@ -630,6 +631,7 @@ struct ContentView: View {
                                 }
                                 .padding(.vertical, 2)
                                 .padding(.horizontal, 10)
+                                .background(stripeColor)
                                 .onTapGesture {
                                     loadSong(song)
                                 }
