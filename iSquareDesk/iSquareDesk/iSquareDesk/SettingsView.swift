@@ -114,9 +114,14 @@ struct SettingsView: View {
         
         var isDirectory: ObjCBool = false
         if fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory) && isDirectory.boolValue {
-            // Store the security-scoped URL data for persistent access
+            // Store bookmark for persistent access
             do {
-                let bookmarkData = try url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+                var options: URL.BookmarkCreationOptions = []
+                #if targetEnvironment(macCatalyst)
+                options.insert(.withSecurityScope)
+                options.insert(.securityScopeAllowOnlyReadAccess)
+                #endif
+                let bookmarkData = try url.bookmarkData(options: options, includingResourceValuesForKeys: nil, relativeTo: nil)
                 musicFolderURL = bookmarkData.base64EncodedString()
             } catch {
                 print("Failed to create bookmark: \(error)")

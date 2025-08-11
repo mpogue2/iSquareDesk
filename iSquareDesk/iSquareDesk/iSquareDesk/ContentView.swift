@@ -190,6 +190,7 @@ struct ContentView: View {
     @State private var currentSongPath: String = ""
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
+    @State private var showFolderPicker: Bool = false
     @State private var searchText: String = ""
     @State private var currentSongLoop: Bool = false
     @State private var currentIntroPos: Float = 0.0
@@ -659,6 +660,11 @@ struct ContentView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
+        .sheet(isPresented: $showFolderPicker) {
+            DocumentPicker { url in
+                persistSelectedMusicFolder(url)
+            }
+        }
         .onAppear {
             establishSecurityScopedAccess { [self] in
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
@@ -903,7 +909,8 @@ struct ContentView: View {
         guard !musicFolderURL.isEmpty,
               let bookmarkData = Data(base64Encoded: musicFolderURL) else {
             DispatchQueue.main.async {
-                completion()
+                // No bookmark stored yet – prompt user to select folder for permission
+                self.showFolderPicker = true
             }
             return
         }
@@ -923,7 +930,12 @@ struct ContentView: View {
             
             do {
                 var isStale = false
+                // Resolve bookmark; use security scope only on Mac Catalyst
+                #if targetEnvironment(macCatalyst)
+                let url = try URL(resolvingBookmarkData: bookmarkData, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &isStale)
+                #else
                 let url = try URL(resolvingBookmarkData: bookmarkData, options: [], relativeTo: nil, bookmarkDataIsStale: &isStale)
+                #endif
                 
                 // Cancel timeout since we succeeded
                 timeoutItem.cancel()
@@ -933,19 +945,54 @@ struct ContentView: View {
                         self.securityScopedURL = url
 // Security access established
                         self.musicFolder = url.path
+                        completion()
                     } else {
-                        print("🔒 ❌ Failed to start accessing security-scoped resource, using current path")
+                        print("🔒 ❌ Failed to start accessing security-scoped resource, requesting folder access")
+                        self.showFolderPicker = true
+                        // Do not call completion yet; wait for user selection
                     }
-                    completion()
                 }
             } catch {
                 timeoutItem.cancel()
                 DispatchQueue.main.async {
                     print("🔒 ❌ Error resolving bookmark: \(error.localizedDescription)")
                     print("🔒 Using current musicFolder path: \(self.musicFolder)")
-                    completion()
+                    self.showFolderPicker = true
+                    // Do not call completion yet; wait for user selection
                 }
             }
+        }
+    }
+
+    // Persist a newly selected music folder with a (security-scoped on Mac) bookmark
+    func persistSelectedMusicFolder(_ url: URL) {
+        // Verify expected structure (.squaredesk exists)
+        let fileManager = FileManager.default
+        var isDirectory: ObjCBool = false
+        let squaredeskURL = url.appendingPathComponent(".squaredesk")
+        guard fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            print("Selected folder missing .squaredesk; ignoring selection")
+            return
+        }
+
+        // Start access and create bookmark
+        let started = url.startAccessingSecurityScopedResource()
+        defer { if started { /* Keep access open for session */ } }
+
+        do {
+            var options: URL.BookmarkCreationOptions = []
+            #if targetEnvironment(macCatalyst)
+            options.insert(.withSecurityScope)
+            options.insert(.securityScopeAllowOnlyReadAccess)
+            #endif
+            let bookmark = try url.bookmarkData(options: options, includingResourceValuesForKeys: nil, relativeTo: nil)
+            self.musicFolderURL = bookmark.base64EncodedString()
+            self.musicFolder = url.path
+            self.securityScopedURL = url
+            // Refresh song list now that we have access
+            NotificationCenter.default.post(name: NSNotification.Name("RefreshSongList"), object: nil)
+        } catch {
+            print("Failed to persist folder bookmark: \(error)")
         }
     }
     
