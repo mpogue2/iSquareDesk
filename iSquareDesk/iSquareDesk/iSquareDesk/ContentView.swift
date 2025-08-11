@@ -199,6 +199,9 @@ struct ContentView: View {
     @State private var currentIntroPos: Float = 0.0
     @State private var currentOutroPos: Float = 1.0
     @State private var isSingingCall: Bool = false
+    @State private var timeInTip: Double = 0
+    @State private var isPatterSong: Bool = false
+    @State private var tipStartTime: Date? = nil
     
     var filteredSongs: [Song] {
         let filtered = searchText.isEmpty ? songs : songs.filter { song in
@@ -262,7 +265,7 @@ struct ContentView: View {
                                         .font(.system(size: 24, weight: .medium))
                                         .foregroundColor(.red)
                                 } else {
-                                    Text(formatTime(currentTime))
+                                    Text(getTimeInTipDisplay())
                                         .font(.system(size: 24, weight: .medium, design: .monospaced))
                                 }
                             }
@@ -311,6 +314,12 @@ struct ContentView: View {
                                             // Sync the audio processor's current time with the seek time before playing
                                             audioProcessor.currentTime = seekTime
                                             audioProcessor.play()
+                                            
+                                            // Start tip timer if this is a patter song and timer hasn't started yet
+                                            if isPatterSong && tipStartTime == nil {
+                                                tipStartTime = Date()
+                                                timeInTip = 0
+                                            }
                                         }
                                     }) {
                                         ZStack {
@@ -818,12 +827,24 @@ struct ContentView: View {
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         clockTime = formatter.string(from: now)
+        
+        // Update time-in-tip if patter song has been started
+        if let startTime = tipStartTime, isPatterSong {
+            timeInTip = now.timeIntervalSince(startTime)
+        }
     }
     
     func formatFullTime(_ time: Double) -> String {
         let minutes = Int(time) / 60
         let seconds = Int(time) % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+    
+    func getTimeInTipDisplay() -> String {
+        if tipStartTime == nil || !isPatterSong {
+            return ""
+        }
+        return formatTime(timeInTip)
     }
     
     func toggleSort(_ column: SortColumn) {
@@ -900,6 +921,17 @@ struct ContentView: View {
         
         // Check if this is a singing call
         isSingingCall = (song.type == "singing" || song.type == "vocals")
+        
+        // Check if this is a patter song
+        isPatterSong = (song.type == "patter")
+        
+        // Handle time-in-tip based on song type
+        if !isPatterSong {
+            // Reset time-in-tip for non-patter songs
+            tipStartTime = nil
+            timeInTip = 0
+        }
+        // Note: For patter songs, we keep the existing time-in-tip running
         
         // Update loop settings
         if isSingingCall {
