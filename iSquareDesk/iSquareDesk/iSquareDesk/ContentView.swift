@@ -1021,6 +1021,8 @@ struct ContentView: View {
     }
     
     func scanDirectoryRecursively(url: URL, fileManager: FileManager, songs: inout [Song], database: SongDatabaseManager?) {
+        // Directories to exclude (case-insensitive) only at the TOP level of the music folder
+        let excludedDirs: Set<String> = ["soundfx", "choreography", "sd", "playlists", "reference", "lyrics"]
         do {
             let files = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: [.isDirectoryKey])
             
@@ -1029,16 +1031,19 @@ struct ContentView: View {
                 fileManager.fileExists(atPath: file.path, isDirectory: &isDirectory)
                 
                 if isDirectory.boolValue {
-                    // Skip soundfx folder
-                    if file.lastPathComponent.lowercased() == "soundfx" {
-                        continue
+                    // Skip excluded folders only when scanning the top-level of the music folder
+                    if url.path == musicFolder {
+                        if excludedDirs.contains(file.lastPathComponent.lowercased()) {
+                            continue
+                        }
                     }
                     // Recursively scan subdirectories
                     scanDirectoryRecursively(url: file, fileManager: fileManager, songs: &songs, database: database)
                 } else {
-                    // Check if file is in soundfx folder (anywhere in the path)
+                    // Skip files that are inside a TOP-LEVEL excluded folder
                     let relativePath = String(file.path.dropFirst(musicFolder.count + 1))
-                    if relativePath.lowercased().contains("soundfx/") {
+                    let firstComponentLower = relativePath.split(separator: "/").first.map { String($0).lowercased() }
+                    if let first = firstComponentLower, excludedDirs.contains(first) {
                         continue
                     }
                     
