@@ -973,7 +973,7 @@ struct ContentView: View {
         case "vocals":
             return Color(hex: "#AB6900")
         default:
-            return .primary
+            return Color(hex: "#9C1F00")  // default uses Extras color
         }
     }
     
