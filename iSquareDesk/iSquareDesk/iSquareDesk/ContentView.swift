@@ -597,6 +597,12 @@ struct ContentView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .background(Color(hex: "#DDDDDF"))
+                    .overlay(
+                        Rectangle()
+                            .fill(Color.black.opacity(0.15))
+                            .frame(height: 1),
+                        alignment: .bottom
+                    )
                     
                     // Song List with iOS scroll indicators
                     ScrollView(.vertical) {
