@@ -246,8 +246,8 @@ struct ContentView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 10)
                 
-                // Top half: Controls
-                ScrollView(.horizontal, showsIndicators: false) {
+                // Top half: Controls (stationary, no horizontal scroll)
+                Group {
                     HStack(spacing: geometry.size.width > 1000 ? 20 : 10) {
                         // Left side: About Time section
                         VStack(alignment: .leading, spacing: 3) {
