@@ -385,6 +385,8 @@ struct ContentView: View {
                                             print("Tap seeking to: \(newTime)")
                                             seekTime = newTime
                                             audioProcessor.seek(to: newTime)
+                                            // Immediately reflect the new position in UI (for section label)
+                                            currentTime = newTime
                                             
                                             // Reset the flag after a brief delay to allow the seek to complete
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -717,6 +719,12 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ForceMonoChanged"))) { _ in
             audioProcessor.forceMono = forceMono
+        }
+        // While scrubbing, keep the UI's currentTime in sync so singing-call label updates immediately
+        .onChange(of: seekTime) { _, newValue in
+            if isUserSeeking {
+                currentTime = newValue
+            }
         }
         .onDisappear {
             stopSecurityScopedAccess()
@@ -1070,4 +1078,3 @@ struct ContentView: View {
 #Preview {
     ContentView()
 }
-
