@@ -129,6 +129,7 @@ struct Song: Identifiable {
     let title: String
     let pitch: Int
     let tempo: Int
+    let tempoIsPercent: Bool
     let originalFilePath: String // Full path to the audio file
     let loop: Bool
     let introPos: Float
@@ -163,6 +164,7 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var pitch: Double = 0
     @State private var tempo: Double = 125
+    @State private var tempoIsPercent: Bool = false
     @State private var volume: Double = 1.0
     @State private var bass: Double = 0
     @State private var mid: Double = 0
@@ -427,9 +429,10 @@ struct ContentView: View {
                                             // Slider snaps to integers, so every change is a real change
                                             audioProcessor.pitchSemitones = Float(newValue)
                                         }
-                                    VerticalSlider(value: $tempo, in: 110...140, label: "Tempo", defaultValue: 125, allowTapIncrement: true, incrementAmount: 1.0, snapToIntegers: true)
+                                    VerticalSlider(value: $tempo, in: (tempoIsPercent ? 80...120 : 110...140), label: "Tempo", defaultValue: (tempoIsPercent ? 100 : 125), allowTapIncrement: true, incrementAmount: 1.0, snapToIntegers: true, isTempoPercent: tempoIsPercent)
                                         .onChange(of: tempo) { _, newValue in
                                             // Slider snaps to integers, so every change is a real change
+                                            audioProcessor.tempoIsPercent = tempoIsPercent
                                             audioProcessor.tempoBPM = Float(newValue)
                                         }
                                     VerticalSlider(value: $volume, in: 0...1, label: "Volume", showMax: true, defaultValue: 1.0, allowTapIncrement: true, incrementAmount: 0.1, vuLevel: Double(audioProcessor.audioLevel))
@@ -630,7 +633,7 @@ struct ContentView: View {
                                         .foregroundColor(getTypeColor(for: song.type))
                                         .frame(width: 60, alignment: .center)
                                     
-                                    Text("\(song.tempo)")
+                                    Text(song.tempoIsPercent ? "\(song.tempo)%" : "\(song.tempo)")
                                         .font(.system(size: 21.175))
                                         .foregroundColor(getTypeColor(for: song.type))
                                         .frame(width: 66, alignment: .center)
@@ -892,6 +895,11 @@ struct ContentView: View {
                         
                         self.currentSongPath = audioURL.path
                         self.duration = audioProcessor.duration
+                        // Apply tempo mode and values to UI and engine
+                        self.tempoIsPercent = song.tempoIsPercent
+                        self.audioProcessor.tempoIsPercent = song.tempoIsPercent
+                        self.tempo = Double(song.tempo)
+                        self.audioProcessor.tempoBPM = Float(song.tempo)
                         self.isLoadingCurrentSong = false // Enable play/stop buttons
                     }
                 } else {
@@ -1112,6 +1120,7 @@ struct ContentView: View {
                         // Look up pitch, tempo, and loop data from database
                         var songPitch = 0
                         var songTempo = 125
+                        var songTempoIsPercent = false
                         var songLoop = false
                         var songIntroPos: Float = 0.05  // Default for songs not in database
                         var songOutroPos: Float = 0.95  // Default for songs not in database
@@ -1122,6 +1131,7 @@ struct ContentView: View {
                             if let dbValues = db.getPitchTempoAndLoop(for: dbLookupPath) {
                                 songPitch = dbValues.pitch
                                 songTempo = dbValues.tempo
+                                songTempoIsPercent = dbValues.tempoIsPercent
                                 songLoop = dbValues.loop
                                 songIntroPos = dbValues.introPos
                                 songOutroPos = dbValues.outroPos
@@ -1134,6 +1144,7 @@ struct ContentView: View {
                             title: parsed.title,
                             pitch: songPitch,
                             tempo: songTempo,
+                            tempoIsPercent: songTempoIsPercent,
                             originalFilePath: file.path,
                             loop: songLoop,
                             introPos: songIntroPos,

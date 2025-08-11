@@ -66,15 +66,29 @@ class AudioProcessor: ObservableObject {
         }
     }
     
-    // Tempo control (in BPM, range 110-140, assuming original is 125 BPM)
+    // Tempo control
     private let originalBPM: Float = 125.0
+    var tempoIsPercent: Bool = false {
+        didSet {
+            updatePlaybackRate()
+        }
+    }
     var tempoBPM: Float = 125.0 {
         didSet {
-            // Calculate rate multiplier (1.0 = original speed, 0.5 = half speed, 2.0 = double speed)
-            let rateMultiplier = tempoBPM / originalBPM
-            pitchNode.rate = rateMultiplier
+            updatePlaybackRate()
 // Tempo updated
         }
+    }
+
+    private func updatePlaybackRate() {
+        // Calculate rate multiplier (1.0 = original speed)
+        let rateMultiplier: Float
+        if tempoIsPercent {
+            rateMultiplier = max(0.01, tempoBPM / 100.0)
+        } else {
+            rateMultiplier = max(0.01, tempoBPM / originalBPM)
+        }
+        pitchNode.rate = rateMultiplier
     }
     
     // EQ controls (in dB, range -12 to +12)

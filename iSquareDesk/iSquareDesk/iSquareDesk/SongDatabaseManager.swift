@@ -5,6 +5,7 @@ struct SongDatabaseRecord: Codable, FetchableRecord {
     var filename: String
     var pitch: Int?
     var tempo: Int?
+    var tempoIsPercent: Int?
     var loop: Int?
     var introPos: Float?
     var outroPos: Float?
@@ -13,7 +14,7 @@ struct SongDatabaseRecord: Codable, FetchableRecord {
 class SongDatabaseManager {
     private var dbQueue: DatabaseQueue?
     private let musicFolderPath: String
-    private var songCache: [String: (pitch: Int, tempo: Int, loop: Bool, introPos: Float, outroPos: Float)] = [:]
+    private var songCache: [String: (pitch: Int, tempo: Int, tempoIsPercent: Bool, loop: Bool, introPos: Float, outroPos: Float)] = [:]
     private var isCacheLoaded = false
     
     init(musicFolderPath: String) {
@@ -46,7 +47,8 @@ class SongDatabaseManager {
         do {
             try dbQueue.read { db in
                 // Load all songs in one query
-                let sql = "SELECT filename, pitch, tempo, loop, introPos, outroPos FROM songs"
+                // Include optional tempoIsPercent flag if present
+                let sql = "SELECT filename, pitch, tempo, tempoIsPercent, loop, introPos, outroPos FROM songs"
                 let rows = try Row.fetchAll(db, sql: sql)
                 
                 // Build cache dictionary
@@ -54,19 +56,21 @@ class SongDatabaseManager {
                     let filename: String = row["filename"] ?? ""
                     let pitch: Int? = row["pitch"]
                     let tempo: Int? = row["tempo"]
+                    let tempoIsPercent: Int? = row["tempoIsPercent"]
                     let loop: Int? = row["loop"]
                     let introPos: Float? = row["introPos"]
                     let outroPos: Float? = row["outroPos"]
                     
                     if !filename.isEmpty {
                         songCache[filename] = (
-                            pitch: pitch ?? 0, 
+                            pitch: pitch ?? 0,
                             tempo: tempo ?? 125,
+                            tempoIsPercent: (tempoIsPercent ?? 0) == 1,
                             loop: (loop ?? 0) == 1,
                             introPos: introPos ?? 0.0,
                             outroPos: outroPos ?? 1.0
                         )
-                    }
+                }
                 }
                 
                 isCacheLoaded = true
@@ -92,16 +96,16 @@ class SongDatabaseManager {
         return nil
     }
     
-    /// Fetches pitch, tempo, and loop data for a given relative file path (FAST - uses cache)
+    /// Fetches pitch, tempo, loop and tempoIsPercent for a given relative file path (FAST - uses cache)
     /// - Parameter relativePath: Path relative to music folder (e.g., "patter/SSR 320b - Bali Hai.mp3")
-    /// - Returns: Tuple of (pitch, tempo, loop, introPos, outroPos) or nil if not found
-    func getPitchTempoAndLoop(for relativePath: String) -> (pitch: Int, tempo: Int, loop: Bool, introPos: Float, outroPos: Float)? {
+    /// - Returns: Tuple of (pitch, tempo, tempoIsPercent, loop, introPos, outroPos) or nil if not found
+    func getPitchTempoAndLoop(for relativePath: String) -> (pitch: Int, tempo: Int, tempoIsPercent: Bool, loop: Bool, introPos: Float, outroPos: Float)? {
         // Database stores paths with leading slash: /patter/filename.ext
         let dbFilename = "/\(relativePath)"
         
         // Exact cache lookup
         if let cached = songCache[dbFilename] {
-            return cached
+            return (pitch: cached.pitch, tempo: cached.tempo, tempoIsPercent: cached.tempoIsPercent, loop: cached.loop, introPos: cached.introPos, outroPos: cached.outroPos)
         }
         
         return nil

@@ -17,8 +17,9 @@ struct VerticalSlider: View {
     let incrementAmount: Double
     let snapToIntegers: Bool
     let vuLevel: Double? // Optional VU meter level (0.0 to 1.0)
+    let isTempoPercent: Bool
     
-    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil, allowTapIncrement: Bool = false, incrementAmount: Double = 1.0, snapToIntegers: Bool = false, vuLevel: Double? = nil) {
+    init(value: Binding<Double>, in range: ClosedRange<Double>, label: String, showMax: Bool = false, defaultValue: Double? = nil, allowTapIncrement: Bool = false, incrementAmount: Double = 1.0, snapToIntegers: Bool = false, vuLevel: Double? = nil, isTempoPercent: Bool = false) {
         self._value = value
         self.range = range
         self.label = label
@@ -28,6 +29,7 @@ struct VerticalSlider: View {
         self.incrementAmount = incrementAmount
         self.snapToIntegers = snapToIntegers
         self.vuLevel = vuLevel
+        self.isTempoPercent = isTempoPercent
     }
     
     var displayValue: String {
@@ -36,6 +38,9 @@ struct VerticalSlider: View {
                 return "MAX"
             }
             return "\(Int(value * 100))"
+        }
+        if label == "Tempo" && isTempoPercent {
+            return "\(Int(value))%"
         }
         if label == "Pitch" {
             let intValue = Int(value)
