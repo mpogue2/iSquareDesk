@@ -213,6 +213,12 @@ struct ContentView: View {
     @State private var playlist3: PlaylistData = PlaylistData(name: "Untitled Playlist", items: [])
     @State private var pendingCSVSlot: Int = 0
     @State private var showingCSVPicker: Bool = false
+
+    // Layout constants
+    private let topControlsHeight: CGFloat = 280
+    private let paletteSlotsHeight: CGFloat = 180
+    private let searchBarHeight: CGFloat = 48
+    private let bottomBarHeight: CGFloat = 36
     // Cuesheet state
     @State private var cuesheetFiles: [String] = []
     @State private var cuesheetSelectedIndex: Int? = nil
@@ -579,7 +585,7 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
-                // Top controls size to content; remove fixed height
+                .frame(height: topControlsHeight)
                 
                 // Bottom half: Pager (Song Table <-> Cuesheet)
                 TabView(selection: $bottomTab) {
@@ -648,7 +654,7 @@ struct ContentView: View {
                                 }
                             )
                         }
-                        .frame(height: 180)
+                        .frame(height: paletteSlotsHeight)
                         .padding(.horizontal, 10)
 
                         HStack {
@@ -666,6 +672,7 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .frame(height: searchBarHeight)
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)
                     
@@ -791,22 +798,18 @@ struct ContentView: View {
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .frame(maxHeight: .infinity)
             }
-            
-            // Gear icon overlay near bottom-right, centered in white space below song list
-            VStack {
+
+            // Bottom bar with gear button (fixed height)
+            HStack {
                 Spacer()
-                HStack {
-                    Spacer()
-                    Button(action: { showingSettings = true }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.gray)
-                    }
-                    .padding(.trailing, 15)
-                    // Anchor near bottom-right with small margin
-                    .padding(.bottom, 1)
+                Button(action: { showingSettings = true }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.gray)
                 }
+                .padding(.trailing, 15)
             }
+            .frame(height: bottomBarHeight)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
