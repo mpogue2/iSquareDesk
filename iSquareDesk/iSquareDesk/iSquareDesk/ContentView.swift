@@ -204,6 +204,15 @@ struct ContentView: View {
     @State private var tipStartTime: Date? = nil
     @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay: Bool = false
     @State private var didAutoSwitchOnThisSong: Bool = false
+    // Playlists (three slots)
+    @AppStorage("playlistSlot1Path") private var playlistSlot1Path: String = ""
+    @AppStorage("playlistSlot2Path") private var playlistSlot2Path: String = ""
+    @AppStorage("playlistSlot3Path") private var playlistSlot3Path: String = ""
+    @State private var playlist1: PlaylistData = PlaylistData(name: "Untitled Playlist", items: [])
+    @State private var playlist2: PlaylistData = PlaylistData(name: "Untitled Playlist", items: [])
+    @State private var playlist3: PlaylistData = PlaylistData(name: "Untitled Playlist", items: [])
+    @State private var pendingCSVSlot: Int = 0
+    @State private var showingCSVPicker: Bool = false
     // Cuesheet state
     @State private var cuesheetFiles: [String] = []
     @State private var cuesheetSelectedIndex: Int? = nil
@@ -570,12 +579,78 @@ struct ContentView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.top, 10)
-                .frame(height: geometry.size.height * 0.45)
+                // Top controls size to content; remove fixed height
                 
                 // Bottom half: Pager (Song Table <-> Cuesheet)
                 TabView(selection: $bottomTab) {
                     // Page 0: Song Table
-                    VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Palette Slots (3 side-by-side)
+                        HStack(spacing: 8) {
+                            PlaylistSlotView(
+                                playlist: $playlist1,
+                                slotIndex: 1,
+                                onLoadPlaylist: { slot in
+                                    pendingCSVSlot = slot
+                                    showingCSVPicker = true
+                                },
+                                onClearPlaylist: { slot in
+                                    let empty = PlaylistData(name: "Untitled Playlist", items: [])
+                                    switch slot {
+                                    case 1: playlist1 = empty; playlistSlot1Path = ""
+                                    case 2: playlist2 = empty; playlistSlot2Path = ""
+                                    case 3: playlist3 = empty; playlistSlot3Path = ""
+                                    default: break
+                                    }
+                                },
+                                onSelectItem: { item in
+                                    loadSongFromRelativePath(item.relativePath)
+                                }
+                            )
+                            PlaylistSlotView(
+                                playlist: $playlist2,
+                                slotIndex: 2,
+                                onLoadPlaylist: { slot in
+                                    pendingCSVSlot = slot
+                                    showingCSVPicker = true
+                                },
+                                onClearPlaylist: { slot in
+                                    let empty = PlaylistData(name: "Untitled Playlist", items: [])
+                                    switch slot {
+                                    case 1: playlist1 = empty; playlistSlot1Path = ""
+                                    case 2: playlist2 = empty; playlistSlot2Path = ""
+                                    case 3: playlist3 = empty; playlistSlot3Path = ""
+                                    default: break
+                                    }
+                                },
+                                onSelectItem: { item in
+                                    loadSongFromRelativePath(item.relativePath)
+                                }
+                            )
+                            PlaylistSlotView(
+                                playlist: $playlist3,
+                                slotIndex: 3,
+                                onLoadPlaylist: { slot in
+                                    pendingCSVSlot = slot
+                                    showingCSVPicker = true
+                                },
+                                onClearPlaylist: { slot in
+                                    let empty = PlaylistData(name: "Untitled Playlist", items: [])
+                                    switch slot {
+                                    case 1: playlist1 = empty; playlistSlot1Path = ""
+                                    case 2: playlist2 = empty; playlistSlot2Path = ""
+                                    case 3: playlist3 = empty; playlistSlot3Path = ""
+                                    default: break
+                                    }
+                                },
+                                onSelectItem: { item in
+                                    loadSongFromRelativePath(item.relativePath)
+                                }
+                            )
+                        }
+                        .frame(height: 180)
+                        .padding(.horizontal, 10)
+
                         HStack {
                             TextField("Search...", text: $searchText)
                                 .font(.system(size: 20, weight: .medium))
@@ -592,7 +667,6 @@ struct ContentView: View {
                         }
                     }
                     .padding(.horizontal, 10)
-                    .padding(.top, 10)
                     .padding(.bottom, 8)
                     
                     // Table Header
@@ -715,7 +789,7 @@ struct ContentView: View {
                         .tag(1)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                .frame(height: geometry.size.height * 0.47)
+                .frame(maxHeight: .infinity)
             }
             
             // Gear icon overlay near bottom-right, centered in white space below song list
@@ -736,6 +810,14 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showingCSVPicker) {
+            CSVPicker { url in
+                // Only accept .csv
+                if url.pathExtension.lowercased() == "csv" {
+                    loadPlaylist(into: pendingCSVSlot, from: url)
+                }
+            }
         }
         .sheet(isPresented: $showFolderPicker) {
             DocumentPicker { url in
@@ -919,6 +1001,7 @@ struct ContentView: View {
             DispatchQueue.main.async {
                 self.songs = tempSongs
                 self.isLoadingSongs = false
+                self.reloadPersistedPlaylists()
             }
         }
     }
@@ -1012,6 +1095,7 @@ struct ContentView: View {
                     }
                     // Also update cuesheet matches (on background)
                     updateCuesheetsForSong(songURL: audioURL, songType: song.type)
+                    reloadPersistedPlaylists()
                 } else {
                     DispatchQueue.main.async {
                         self.isLoadingCurrentSong = false // Re-enable buttons even on failure
@@ -1061,6 +1145,58 @@ struct ContentView: View {
             } else {
                 self.cuesheetHTML = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family: -apple-system, Helvetica; font-size: 18px; color: #111;\"><p>(No cuesheet)</p></body></html>"
             }
+        }
+    }
+    
+    private func reloadPersistedPlaylists() {
+        let root = URL(fileURLWithPath: self.musicFolder)
+        if !playlistSlot1Path.isEmpty {
+            let url = root.appendingPathComponent(playlistSlot1Path)
+            if let data = try? PlaylistLoader.loadCSV(url: url, musicRoot: root) { playlist1 = data }
+        }
+        if !playlistSlot2Path.isEmpty {
+            let url = root.appendingPathComponent(playlistSlot2Path)
+            if let data = try? PlaylistLoader.loadCSV(url: url, musicRoot: root) { playlist2 = data }
+        }
+        if !playlistSlot3Path.isEmpty {
+            let url = root.appendingPathComponent(playlistSlot3Path)
+            if let data = try? PlaylistLoader.loadCSV(url: url, musicRoot: root) { playlist3 = data }
+        }
+    }
+
+    private func loadPlaylist(into slot: Int, from url: URL) {
+        let root = URL(fileURLWithPath: self.musicFolder)
+        do {
+            let data = try PlaylistLoader.loadCSV(url: url, musicRoot: root)
+            let path = url.path
+            let base = root.path.hasSuffix("/") ? root.path : root.path + "/"
+            let rel = path.hasPrefix(base) ? String(path.dropFirst(base.count)) : url.lastPathComponent
+            switch slot {
+            case 1: playlist1 = data; playlistSlot1Path = rel
+            case 2: playlist2 = data; playlistSlot2Path = rel
+            case 3: playlist3 = data; playlistSlot3Path = rel
+            default: break
+            }
+        } catch {
+            print("Failed to load playlist: \(error)")
+        }
+    }
+
+    // moved to PlaylistSlotView.swift
+
+    private func loadSongFromRelativePath(_ rel: String) {
+        if let song = songs.first(where: { song in
+            let path = song.originalFilePath
+            let root = musicFolder.hasSuffix("/") ? musicFolder : musicFolder + "/"
+            if path.hasPrefix(root) {
+                let srel = String(path.dropFirst(root.count))
+                return srel == rel
+            }
+            return URL(fileURLWithPath: path).lastPathComponent == URL(fileURLWithPath: rel).lastPathComponent
+        }) {
+            loadSong(song)
+        } else {
+            print("Playlist item not found in scanned songs: \(rel)")
         }
     }
     
