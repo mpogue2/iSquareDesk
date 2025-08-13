@@ -204,6 +204,7 @@ struct ContentView: View {
     @State private var tipStartTime: Date? = nil
     @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay: Bool = false
     @State private var didAutoSwitchOnThisSong: Bool = false
+    @AppStorage("autoScrollCuesheet") private var autoScrollCuesheet: Bool = false
     // Playlists (three slots)
     @AppStorage("playlistSlot1Path") private var playlistSlot1Path: String = ""
     @AppStorage("playlistSlot2Path") private var playlistSlot2Path: String = ""
@@ -800,7 +801,15 @@ struct ContentView: View {
                     .tag(0)
 
                     // Page 1: Cuesheet view
-                    CuesheetView(files: cuesheetFiles, selectedIndex: $cuesheetSelectedIndex, htmlContent: cuesheetHTML)
+                    CuesheetView(
+                        files: cuesheetFiles,
+                        selectedIndex: $cuesheetSelectedIndex,
+                        htmlContent: cuesheetHTML,
+                        playheadNormalized: duration > 0 ? currentTime / duration : 0,
+                        introPos: Double(currentIntroPos),
+                        outroPos: Double(currentOutroPos),
+                        autoScrollEnabled: autoScrollCuesheet
+                    )
                         .tag(1)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))

@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage("musicFolderURL") private var musicFolderURL = ""
     @AppStorage("forceMono") private var forceMono = false
     @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay = false
+    @AppStorage("autoScrollCuesheet") private var autoScrollCuesheet = false
     @Environment(\.dismiss) private var dismiss
     @State private var showingFolderPicker = false
     @State private var showingAlert = false
@@ -61,6 +62,11 @@ struct SettingsView: View {
                 Section(header: Text("Playback")) {
                     Toggle("Switch to Cuesheet on first play", isOn: $switchToCuesheetOnFirstPlay)
                     Text("If enabled, when a singing call starts playing for the first time after load, automatically show the Cuesheet tab.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Toggle("Auto-scroll cuesheet", isOn: $autoScrollCuesheet)
+                    Text("Scroll the cuesheet based on the song playhead. ‘OPENER’ is used as the intro anchor.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

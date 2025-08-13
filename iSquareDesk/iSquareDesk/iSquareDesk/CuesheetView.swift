@@ -10,17 +10,76 @@ import WebKit
 
 struct HTMLView: UIViewRepresentable {
     let html: String
+    let autoScrollEnabled: Bool
+    let scrollFraction: Double // 0..1 (0 at intro anchor, 1 at bottom)
+    let introMarkerText: String = "OPENER"
+
+    class Coordinator: NSObject, WKNavigationDelegate {
+        var lastHTML: String = ""
+        var webView: WKWebView?
+        var anchorsReady: Bool = false
+        var pendingFraction: Double? = nil
+        var lastSentFraction: Double = -1
+        var lastSentAt: TimeInterval = 0
+
+        func navigationFinishedSetup(_ webView: WKWebView) {
+            let js = "(function(){try{var el=null;var walker=document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);while(walker.nextNode()){var n=walker.currentNode;try{if(n.innerText && /\\bOPENER\\b/i.test(n.innerText)){el=n;break;}}catch(e){}}var openerY=0;if(el){var r=el.getBoundingClientRect();openerY=r.top + window.scrollY;}var docHeight=Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);var viewport=window.innerHeight;var maxScroll=Math.max(0, docHeight-viewport);window._cuesheet={openerY:openerY,docHeight:docHeight,viewport:viewport,maxScrollTop:maxScroll,introTop:Math.max(0, openerY-30)};return true;}catch(e){return false;}})();"
+            webView.evaluateJavaScript(js) { [weak self] _, _ in
+                self?.anchorsReady = true
+                if let f = self?.pendingFraction {
+                    self?.setScrollFraction(f, on: webView)
+                    self?.pendingFraction = nil
+                }
+            }
+        }
+
+        func setScrollFraction(_ f: Double, on webView: WKWebView) {
+            let clamped = max(0.0, min(1.0, f))
+            // Throttle updates for smoothness (couple times a second)
+            let now = Date().timeIntervalSince1970
+            let deltaFrac = abs(clamped - lastSentFraction)
+            if now - lastSentAt < 0.25 && deltaFrac < 0.05 { return }
+            let js = "(function(){try{if(!window._cuesheet){return -1;}var cs=window._cuesheet;var introTop=cs.introTop||0;var maxTop=cs.maxScrollTop||0;var target=introTop + (" + String(clamped) + ")*(maxTop-introTop);if(!isFinite(target)){target=0;}window.scrollTo({top:target,behavior:'smooth'});return target;}catch(e){return -2;}})();"
+            webView.evaluateJavaScript(js, completionHandler: nil)
+            lastSentFraction = clamped
+            lastSentAt = now
+        }
+
+        // WKNavigationDelegate
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            navigationFinishedSetup(webView)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WKWebView()
         webView.scrollView.isScrollEnabled = true
         webView.isOpaque = false
         webView.backgroundColor = .clear
+        webView.navigationDelegate = context.coordinator
+        context.coordinator.webView = webView
         return webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        uiView.loadHTMLString(html, baseURL: nil)
+        // Only reload HTML when it actually changes
+        if context.coordinator.lastHTML != html {
+            context.coordinator.anchorsReady = false
+            context.coordinator.lastHTML = html
+            uiView.loadHTMLString(html, baseURL: nil)
+        } else {
+            // Update scroll if enabled and anchors exist
+            if autoScrollEnabled {
+                if context.coordinator.anchorsReady {
+                    context.coordinator.setScrollFraction(scrollFraction, on: uiView)
+                } else {
+                    // Defer until anchors are computed after load
+                    context.coordinator.pendingFraction = scrollFraction
+                }
+            }
+        }
     }
 }
 
@@ -28,6 +87,10 @@ struct CuesheetView: View {
     let files: [String]
     @Binding var selectedIndex: Int?
     let htmlContent: String
+    let playheadNormalized: Double // 0..1 of song duration
+    let introPos: Double           // 0..1, anchor at OPENER
+    let outroPos: Double           // 0..1, end anchor at bottom
+    let autoScrollEnabled: Bool
 
     private var selectionBinding: Binding<Int> {
         Binding<Int>(
@@ -67,7 +130,11 @@ struct CuesheetView: View {
             .padding(.horizontal, 10)
 
             // Rich text HTML view
-            HTMLView(html: htmlContent)
+            HTMLView(
+                html: htmlContent,
+                autoScrollEnabled: autoScrollEnabled,
+                scrollFraction: computeScrollFraction()
+            )
                 .background(Color.white)
                 .cornerRadius(6)
                 .overlay(
@@ -76,5 +143,16 @@ struct CuesheetView: View {
                 )
                 .padding(.horizontal, 10)
         }
+    }
+}
+
+extension CuesheetView {
+    // Map playheadNormalized into 0..1 fraction between intro and outro anchors
+    func computeScrollFraction() -> Double {
+        let start = introPos
+        let end = max(introPos, outroPos)
+        guard end > start else { return 0 }
+        let t = (playheadNormalized - start) / (end - start)
+        return min(1.0, max(0.0, t))
     }
 }
