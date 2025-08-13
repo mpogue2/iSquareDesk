@@ -215,9 +215,9 @@ struct ContentView: View {
     @State private var showingCSVPicker: Bool = false
 
     // Layout constants
-    private let topControlsHeight: CGFloat = 280
-    private let paletteSlotsHeight: CGFloat = 180
-    private let searchBarHeight: CGFloat = 48
+    private let topControlsHeight: CGFloat = 200
+    private let paletteSlotsHeight: CGFloat = 300
+    private let searchBarHeight: CGFloat = 35
     private let bottomBarHeight: CGFloat = 36
     // Cuesheet state
     @State private var cuesheetFiles: [String] = []
