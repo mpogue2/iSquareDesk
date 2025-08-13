@@ -1,6 +1,0 @@
-@
-#REC=725900005#
-#AUTHOR=SquareDesk#
-#TITLE=Archive of Deleted Files#
-( ARCHIVE OF DELETED FILES )
-@

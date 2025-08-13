@@ -1,7 +1,0 @@
-@
-#REC=725900002#
-#AUTHOR=SquareDesk#
-#TITLE=Sample Easy Sequence#
-HEADS Square Thru 4
-( AL, HOME )
-@

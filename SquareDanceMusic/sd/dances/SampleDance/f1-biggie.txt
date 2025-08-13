@@ -1,8 +1,0 @@
-@
-#REC=725900001#
-#AUTHOR=SquareDesk#
-#TITLE=Sample Opening Biggie#
-HEADS Square Thru 3
-HEADS Partner Trade
-( AL, HOME )
-@
