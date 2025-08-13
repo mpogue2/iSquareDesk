@@ -75,16 +75,21 @@ struct SettingsView: View {
 
                 Section(header: Text("Cuesheet")) {
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack {
+                        HStack(spacing: 8) {
                             Text("Cuesheet Zoom")
                             Spacer()
                             TextField("100", text: $cuesheetZoomText)
                                 .keyboardType(.decimalPad)
                                 .multilineTextAlignment(.trailing)
-                                .frame(width: 80)
+                                .frame(width: 70)
                                 .onSubmit { commitZoomText() }
+                            Stepper("", value: $cuesheetZoomPercent, in: 10...500, step: 5)
+                                .labelsHidden()
+                                .onChange(of: cuesheetZoomPercent) { _, newVal in
+                                    cuesheetZoomText = String(format: "%.0f", newVal)
+                                }
                         }
-                        Text("Zoom level in percent (e.g., 120 makes text 1.2×).")
+                        Text("Zoom level in percent (e.g., 120 makes text 1.2×). Use the stepper for ±5%.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
