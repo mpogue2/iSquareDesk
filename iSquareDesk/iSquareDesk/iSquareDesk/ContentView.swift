@@ -815,12 +815,14 @@ struct ContentView: View {
             SettingsView()
         }
         .sheet(isPresented: $showingCSVPicker) {
-            CSVPicker { url in
+            // Start in Music Directory/Playlists if it exists (best-effort)
+            let startDir = URL(fileURLWithPath: self.musicFolder).appendingPathComponent("playlists")
+            CSVPicker(onPicked: { url in
                 // Only accept .csv
                 if url.pathExtension.lowercased() == "csv" {
                     loadPlaylist(into: pendingCSVSlot, from: url)
                 }
-            }
+            }, initialFolder: startDir)
         }
         .sheet(isPresented: $showFolderPicker) {
             DocumentPicker { url in
@@ -1174,6 +1176,10 @@ struct ContentView: View {
             let path = url.path
             let base = root.path.hasSuffix("/") ? root.path : root.path + "/"
             let rel = path.hasPrefix(base) ? String(path.dropFirst(base.count)) : url.lastPathComponent
+            print("UI: Loading playlist into slot \(slot) from '" + rel + "' -> items=\(data.items.count)")
+            for item in data.items.prefix(5) {
+                print("UI:   #\(item.index) title='\(item.title)' rel='\(item.relativePath)'")
+            }
             switch slot {
             case 1: playlist1 = data; playlistSlot1Path = rel
             case 2: playlist2 = data; playlistSlot2Path = rel

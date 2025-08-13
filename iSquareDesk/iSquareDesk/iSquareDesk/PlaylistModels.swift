@@ -64,55 +64,66 @@ private func parseCSV(_ text: String) -> [[String]] {
 
 struct PlaylistLoader {
     static func loadCSV(url: URL, musicRoot: URL) throws -> PlaylistData {
+        print("PlaylistLoader: Loading CSV at \(url.path)")
         guard FileManager.default.fileExists(atPath: url.path) else { throw PlaylistParseError.fileNotFound }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { throw PlaylistParseError.invalidEncoding }
         let rows = parseCSV(text)
         guard rows.count >= 1 else { throw PlaylistParseError.empty }
         let header = rows[0].map { $0.trimmingCharacters(in: .whitespaces) }
+        print("PlaylistLoader: Header columns = \(header)")
 
-        // possible columns for path
-        let pathKeys = ["filename", "path", "relativePath", "relative", "abspath"]
+        // Robust detection of path column: normalize headers (lowercased, alphanumerics only)
+        func norm(_ s: String) -> String { s.lowercased().filter { $0.isLetter || $0.isNumber } }
+        let normalizedHeader = header.map(norm)
+        let pathKeys: Set<String> = [
+            "filename", "file", "filepath", "path", "songpath",
+            "relativepath", "relpath", "relativefile", "relative",
+            "abspath", "absolutepath", "absolute"
+        ]
         var pathIdx: Int? = nil
-        for (i, col) in header.enumerated() {
-            if pathKeys.contains(col.lowercased()) { pathIdx = i; break }
+        for (i, col) in normalizedHeader.enumerated() {
+            if pathKeys.contains(col) { pathIdx = i; break }
         }
-        // a title column is optional; if absent derive from filename
-        let titleIdx = header.firstIndex(where: { ["title", "song", "name"].contains($0.lowercased()) })
+        if let pIdx = pathIdx { print("PlaylistLoader: Detected path column index = \(pIdx) (\(header[pIdx]))") }
+        else { print("PlaylistLoader: WARNING - No path column detected; items will be empty") }
+        // Ignore other columns for now; title will be derived from the path
 
         var items: [PlaylistItem] = []
         var rowIndex = 1
+        var samplePrinted = 0
         for r in rows.dropFirst() {
             if r.allSatisfy({ $0.trimmingCharacters(in: .whitespaces).isEmpty }) { continue }
             var rel: String = ""
             var title: String = ""
             if let pIdx = pathIdx, pIdx < r.count {
-                let rawPath = r[pIdx].trimmingCharacters(in: .whitespaces)
-                if rawPath.hasPrefix("/") {
-                    // absolute -> try make relative to musicRoot
-                    let root = musicRoot.path.hasSuffix("/") ? musicRoot.path : musicRoot.path + "/"
-                    if rawPath.hasPrefix(root) {
-                        rel = String(rawPath.dropFirst(root.count))
-                    } else {
-                        rel = (URL(fileURLWithPath: rawPath).lastPathComponent)
+                var rawPath = r[pIdx].trimmingCharacters(in: .whitespacesAndNewlines)
+                // If provided as file URL, convert to path
+                if rawPath.lowercased().hasPrefix("file://") {
+                    if let url = URL(string: rawPath), url.isFileURL {
+                        rawPath = url.path
                     }
-                } else {
-                    rel = rawPath
                 }
+                // Treat value as a path relative to the music root; if it starts with '/', drop exactly one leading slash
+                if rawPath.hasPrefix("/") { rawPath.removeFirst() }
+                rel = rawPath
             }
-            if let tIdx = titleIdx, tIdx < r.count {
-                title = r[tIdx].trimmingCharacters(in: .whitespaces)
-            }
-            if title.isEmpty {
-                title = URL(fileURLWithPath: rel).deletingPathExtension().lastPathComponent
+            // Derive title from the relative path: drop directories and extension
+            let base = URL(fileURLWithPath: rel).deletingPathExtension().lastPathComponent
+            if let range = base.range(of: " - ") {
+                // Common pattern: "LABEL 123 - Title" -> keep just Title
+                title = String(base[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+            } else {
+                title = base
             }
             if !rel.isEmpty {
                 items.append(PlaylistItem(index: items.count + 1, title: title, relativePath: rel))
+                if samplePrinted < 5 { print("PlaylistLoader: + item \(items.count): title='\(title)', rel='\(rel)'"); samplePrinted += 1 }
             }
             rowIndex += 1
         }
 
         let baseName = url.deletingPathExtension().lastPathComponent
+        print("PlaylistLoader: Parsed \(items.count) items from CSV")
         return PlaylistData(name: baseName.isEmpty ? "Untitled Playlist" : baseName, items: items)
     }
 }
-

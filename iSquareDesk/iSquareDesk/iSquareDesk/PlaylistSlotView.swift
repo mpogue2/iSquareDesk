@@ -10,7 +10,7 @@ struct PlaylistSlotView: View {
     var body: some View {
         VStack(spacing: 4) {
             header
-            tableHeader
+//            tableHeader
             itemsList
         }
         .background(Color.white.opacity(0.9))
@@ -65,14 +65,18 @@ struct PlaylistSlotView: View {
     }
 
     private func rowView(item: PlaylistItem) -> some View {
-        HStack {
-            Text(String(item.index)).frame(width: 28, alignment: .trailing)
-            Text(item.title).frame(maxWidth: .infinity, alignment: .leading)
+        Button(action: {
+            print("PlaylistSlotView: slot=\(slotIndex) tapped item #\(item.index) title='\(item.title)' rel='\(item.relativePath)'")
+            onSelectItem(item)
+        }) {
+            HStack {
+                Text(String(item.index)).frame(width: 28, alignment: .trailing)
+                Text(item.title).frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(item.index % 2 == 0 ? Color(hex: "#F5F5F7") : Color.clear)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(item.index % 2 == 0 ? Color(hex: "#F5F5F7") : Color.clear)
-        .contentShape(Rectangle())
-        .onTapGesture { onSelectItem(item) }
+        .buttonStyle(.plain)
     }
 }

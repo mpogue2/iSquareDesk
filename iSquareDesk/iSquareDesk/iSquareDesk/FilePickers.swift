@@ -3,12 +3,17 @@ import UniformTypeIdentifiers
 
 struct CSVPicker: UIViewControllerRepresentable {
     let onPicked: (URL) -> Void
+    var initialFolder: URL? = nil
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.commaSeparatedText], asCopy: false)
         picker.delegate = context.coordinator
         picker.allowsMultipleSelection = false
         picker.shouldShowFileExtensions = true
+        // Hint the starting directory if provided (best-effort)
+        if let dir = initialFolder {
+            picker.directoryURL = dir
+        }
         return picker
     }
 
@@ -25,4 +30,3 @@ struct CSVPicker: UIViewControllerRepresentable {
         }
     }
 }
-
