@@ -259,6 +259,11 @@ struct ContentView: View {
         }
     }
     
+    // Reserve vertical space for the title to avoid layout shift on first load
+    private var displayedSongTitle: String {
+        currentSongTitle.isEmpty ? " " : currentSongTitle
+    }
+    
     var body: some View {
     GeometryReader { geometry in
         ZStack {
@@ -277,8 +282,10 @@ struct ContentView: View {
                         // Left side: Title and seekBar section
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
-                                Text(currentSongTitle)
+                                Text(displayedSongTitle)
                                     .font(.system(size: 28, weight: .medium))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                                 
                                 Spacer()
                                 
@@ -291,6 +298,7 @@ struct ContentView: View {
                                         .font(.system(size: 24, weight: .medium, design: .monospaced))
                                 }
                             }
+                            .frame(minHeight: 34) // Reserve consistent height for title row to avoid layout shift
                             
                             // Dark red line
                             Rectangle()
