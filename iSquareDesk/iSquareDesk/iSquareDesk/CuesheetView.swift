@@ -13,6 +13,8 @@ struct HTMLView: UIViewRepresentable {
     let autoScrollEnabled: Bool
     let scrollFraction: Double // 0..1 (0 at intro anchor, 1 at bottom)
     let introMarkerText: String = "OPENER"
+    let forceTopTick: Int // when this increments, scroll to absolute top
+    let stickToTop: Bool   // if true, keep view at absolute top
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var lastHTML: String = ""
@@ -21,6 +23,7 @@ struct HTMLView: UIViewRepresentable {
         var pendingFraction: Double? = nil
         var lastSentFraction: Double = -1
         var lastSentAt: TimeInterval = 0
+        var lastForceTopTick: Int = 0
 
         func navigationFinishedSetup(_ webView: WKWebView) {
             let js = "(function(){try{var el=null;var walker=document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);while(walker.nextNode()){var n=walker.currentNode;try{if(n.innerText && /\\bOPENER\\b/i.test(n.innerText)){el=n;break;}}catch(e){}}var openerY=0;if(el){var r=el.getBoundingClientRect();openerY=r.top + window.scrollY;}var docHeight=Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);var viewport=window.innerHeight;var maxScroll=Math.max(0, docHeight-viewport);window._cuesheet={openerY:openerY,docHeight:docHeight,viewport:viewport,maxScrollTop:maxScroll,introTop:Math.max(0, openerY-30)};return true;}catch(e){return false;}})();"
@@ -72,6 +75,22 @@ struct HTMLView: UIViewRepresentable {
         } else {
             // Update scroll if enabled and anchors exist
             if autoScrollEnabled {
+                // If we should stick to absolute top (stopped at start), do that and skip interpolation
+                if stickToTop {
+                    let jsTop = "window.scrollTo({top:0,behavior:'auto'});"
+                    uiView.evaluateJavaScript(jsTop, completionHandler: nil)
+                    context.coordinator.lastSentFraction = -1
+                    return
+                }
+                // Force scroll to absolute top if requested
+                if context.coordinator.lastForceTopTick != forceTopTick {
+                    context.coordinator.lastForceTopTick = forceTopTick
+                    let jsTop = "window.scrollTo({top:0,behavior:'smooth'});"
+                    uiView.evaluateJavaScript(jsTop, completionHandler: nil)
+                    // Reset lastSentFraction so future throttling doesn't block
+                    context.coordinator.lastSentFraction = -1
+                    return
+                }
                 if context.coordinator.anchorsReady {
                     context.coordinator.setScrollFraction(scrollFraction, on: uiView)
                 } else {
@@ -91,6 +110,8 @@ struct CuesheetView: View {
     let introPos: Double           // 0..1, anchor at OPENER
     let outroPos: Double           // 0..1, end anchor at bottom
     let autoScrollEnabled: Bool
+    let forceTopTick: Int
+    let stickToTop: Bool
 
     private var selectionBinding: Binding<Int> {
         Binding<Int>(
@@ -133,7 +154,9 @@ struct CuesheetView: View {
             HTMLView(
                 html: htmlContent,
                 autoScrollEnabled: autoScrollEnabled,
-                scrollFraction: computeScrollFraction()
+                scrollFraction: computeScrollFraction(),
+                forceTopTick: forceTopTick,
+                stickToTop: stickToTop
             )
                 .background(Color.white)
                 .cornerRadius(6)

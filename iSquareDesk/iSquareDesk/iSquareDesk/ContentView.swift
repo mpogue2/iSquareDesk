@@ -205,6 +205,8 @@ struct ContentView: View {
     @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay: Bool = false
     @State private var didAutoSwitchOnThisSong: Bool = false
     @AppStorage("autoScrollCuesheet") private var autoScrollCuesheet: Bool = false
+    @State private var cuesheetForceTopTick: Int = 0
+    @State private var lastObservedCurrentTime: Double = 0
     // Playlists (three slots)
     @AppStorage("playlistSlot1Path") private var playlistSlot1Path: String = ""
     @AppStorage("playlistSlot2Path") private var playlistSlot2Path: String = ""
@@ -321,6 +323,9 @@ struct ContentView: View {
                                         audioProcessor.stop()
                                         currentTime = 0
                                         seekTime = 0
+                                        if autoScrollCuesheet {
+                                            cuesheetForceTopTick &+= 1
+                                        }
                                     }) {
                                         Image(systemName: "stop.fill")
                                             .font(.system(size: 14))
@@ -808,7 +813,9 @@ struct ContentView: View {
                         playheadNormalized: duration > 0 ? currentTime / duration : 0,
                         introPos: Double(currentIntroPos),
                         outroPos: Double(currentOutroPos),
-                        autoScrollEnabled: autoScrollCuesheet
+                        autoScrollEnabled: autoScrollCuesheet,
+                        forceTopTick: cuesheetForceTopTick,
+                        stickToTop: autoScrollCuesheet && !audioProcessor.isPlaying && (currentTime <= 0.05)
                     )
                         .tag(1)
                 }
@@ -919,6 +926,16 @@ struct ContentView: View {
                         currentTime = introTimeInSeconds
                     }
                 }
+
+                // Detect wrap to beginning (song finished and reset to 0)
+                if autoScrollCuesheet && duration > 0 {
+                    let nearEnd = lastObservedCurrentTime >= max(0, duration - 0.25)
+                    let wrappedToStart = time <= 0.05 && nearEnd
+                    if wrappedToStart {
+                        cuesheetForceTopTick &+= 1
+                    }
+                }
+                lastObservedCurrentTime = time
             }
         }
         
