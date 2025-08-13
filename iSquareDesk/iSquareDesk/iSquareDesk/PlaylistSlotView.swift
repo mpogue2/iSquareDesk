@@ -41,10 +41,10 @@ struct PlaylistSlotView: View {
 
     private var tableHeader: some View {
         HStack {
-            Text("#").frame(width: 28, alignment: .trailing)
+            Text("#").frame(width: 21, alignment: .center)
             Text("Title").frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(.caption)
+        .font(.system(size: 13))
         .foregroundColor(.secondary)
         .padding(.horizontal, 8)
     }
@@ -70,9 +70,10 @@ struct PlaylistSlotView: View {
             onSelectItem(item)
         }) {
             HStack {
-                Text(String(item.index)).frame(width: 28, alignment: .trailing)
+                Text(String(item.index)).frame(width: 21, alignment: .center)
                 Text(item.title).frame(maxWidth: .infinity, alignment: .leading)
             }
+            .font(.system(size: 15))
             .padding(.vertical, 6)
             .padding(.horizontal, 8)
             .background(item.index % 2 == 0 ? Color(hex: "#F5F5F7") : Color.clear)
