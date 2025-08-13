@@ -27,8 +27,6 @@ Place your screenshots under `Screenshots/` in the repository. Example embeds be
 
 ![Cuesheet View](Screenshots/02-cuesheet.png)
 
-If your filenames differ, update the paths above accordingly.
-
 ## Requirements
 
 - macOS with Xcode 16.4 or newer.
@@ -50,10 +48,12 @@ If your filenames differ, update the paths above accordingly.
 The app reads your music library from a folder you choose at runtime (no media is bundled in the app):
 
 - Open Settings (gear icon) → “Select Folder”.
-- Choose your `SquareDanceMusic` folder that contains a `.squaredesk` subfolder.
+- Choose your `SquareDanceMusic` folder that contains a `.squaredesk` subfolder.  This folder is
+    the same folder that you created for the SquareDesk desktop application.  You can share
+    that folder between your MacOS laptop and your iPad using iCloud.  The iSquareDesk iPad app
+    will not save any changes right now to the database, so changes to Pitch, Tempo, and EQ will
+    currently not persist.  
 - The app requests security‑scoped access and indexes your music and cuesheets.
-
-Repository note: `SquareDanceMusic/` is .gitignored and not part of this repo.
 
 ## Cuesheets
 
