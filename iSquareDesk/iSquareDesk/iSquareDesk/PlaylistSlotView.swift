@@ -41,7 +41,7 @@ struct PlaylistSlotView: View {
 
     private var tableHeader: some View {
         HStack {
-            Text("#").frame(width: 21, alignment: .center)
+            Text("#").frame(width: 19, alignment: .center)
             Text("Title").frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.system(size: 13))
@@ -71,7 +71,7 @@ struct PlaylistSlotView: View {
             onSelectItem(item)
         }) {
             HStack {
-                Text(String(item.index)).frame(width: 21, alignment: .center)
+                Text(String(item.index)).frame(width: 19, alignment: .center)
                 Text(item.title).frame(maxWidth: .infinity, alignment: .leading)
             }
             .font(.system(size: 15))
