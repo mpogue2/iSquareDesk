@@ -805,19 +805,23 @@ struct ContentView: View {
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .frame(maxHeight: .infinity)
+                .padding(.bottom, bottomBarHeight + 8) // leave space for bottom bar
             }
 
             // Bottom bar with gear button (fixed height)
-            HStack {
+            VStack {
                 Spacer()
-                Button(action: { showingSettings = true }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.gray)
+                HStack {
+                    Spacer()
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(.trailing, 15)
                 }
-                .padding(.trailing, 15)
+                .frame(height: bottomBarHeight)
             }
-            .frame(height: bottomBarHeight)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
