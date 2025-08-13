@@ -17,6 +17,8 @@ struct SettingsView: View {
     @AppStorage("forceMono") private var forceMono = false
     @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay = false
     @AppStorage("autoScrollCuesheet") private var autoScrollCuesheet = false
+    @AppStorage("cuesheetZoomPercent") private var cuesheetZoomPercent: Double = 100.0
+    @State private var cuesheetZoomText: String = ""
     @Environment(\.dismiss) private var dismiss
     @State private var showingFolderPicker = false
     @State private var showingAlert = false
@@ -70,6 +72,23 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+
+                Section(header: Text("Cuesheet")) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Cuesheet Zoom")
+                            Spacer()
+                            TextField("100", text: $cuesheetZoomText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .frame(width: 80)
+                                .onSubmit { commitZoomText() }
+                        }
+                        Text("Zoom level in percent (e.g., 120 makes text 1.2×).")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
                 
                 Section(header: Text("Developer Tools")) {
                     NavigationLink(destination: DatabaseTestView()) {
@@ -98,6 +117,8 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
+                        // Persist zoom value on exit
+                        commitZoomText()
                         dismiss()
                     }
                 }
@@ -112,6 +133,21 @@ struct SettingsView: View {
         } message: {
             Text(alertMessage)
         }
+        .onAppear {
+            // Initialize text from stored value
+            cuesheetZoomText = String(format: "%.0f", cuesheetZoomPercent)
+        }
+    }
+    
+    // MARK: - Zoom helpers
+    private func commitZoomText() {
+        let raw = cuesheetZoomText.trimmingCharacters(in: .whitespaces)
+        let cleaned = raw.replacingOccurrences(of: "%", with: "")
+        if let val = Double(cleaned) {
+            cuesheetZoomPercent = max(10.0, min(500.0, val))
+        }
+        // Normalize text display
+        cuesheetZoomText = String(format: "%.0f", cuesheetZoomPercent)
     }
     
     func selectMusicFolder(url: URL) {

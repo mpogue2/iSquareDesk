@@ -205,6 +205,7 @@ struct ContentView: View {
     @AppStorage("switchToCuesheetOnFirstPlay") private var switchToCuesheetOnFirstPlay: Bool = false
     @State private var didAutoSwitchOnThisSong: Bool = false
     @AppStorage("autoScrollCuesheet") private var autoScrollCuesheet: Bool = false
+    @AppStorage("cuesheetZoomPercent") private var cuesheetZoomPercent: Double = 100.0
     @State private var cuesheetForceTopTick: Int = 0
     @State private var lastObservedCurrentTime: Double = 0
     // Playlists (three slots)
@@ -815,7 +816,8 @@ struct ContentView: View {
                         outroPos: Double(currentOutroPos),
                         autoScrollEnabled: autoScrollCuesheet,
                         forceTopTick: cuesheetForceTopTick,
-                        stickToTop: autoScrollCuesheet && !audioProcessor.isPlaying && (currentTime <= 0.05)
+                        stickToTop: autoScrollCuesheet && !audioProcessor.isPlaying && (currentTime <= 0.05),
+                        zoomPercent: max(10.0, min(500.0, cuesheetZoomPercent))
                     )
                         .tag(1)
                 }

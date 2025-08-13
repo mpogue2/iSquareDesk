@@ -15,6 +15,7 @@ struct HTMLView: UIViewRepresentable {
     let introMarkerText: String = "OPENER"
     let forceTopTick: Int // when this increments, scroll to absolute top
     let stickToTop: Bool   // if true, keep view at absolute top
+    let zoomPercent: Double
 
     class Coordinator: NSObject, WKNavigationDelegate {
         var lastHTML: String = ""
@@ -24,6 +25,7 @@ struct HTMLView: UIViewRepresentable {
         var lastSentFraction: Double = -1
         var lastSentAt: TimeInterval = 0
         var lastForceTopTick: Int = 0
+        var lastZoom: CGFloat = 1.0
 
         func navigationFinishedSetup(_ webView: WKWebView) {
             let js = "(function(){try{var el=null;var walker=document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);while(walker.nextNode()){var n=walker.currentNode;try{if(n.innerText && /\\bOPENER\\b/i.test(n.innerText)){el=n;break;}}catch(e){}}var openerY=0;if(el){var r=el.getBoundingClientRect();openerY=r.top + window.scrollY;}var docHeight=Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);var viewport=window.innerHeight;var maxScroll=Math.max(0, docHeight-viewport);window._cuesheet={openerY:openerY,docHeight:docHeight,viewport:viewport,maxScrollTop:maxScroll,introTop:Math.max(0, openerY-30)};return true;}catch(e){return false;}})();"
@@ -63,10 +65,22 @@ struct HTMLView: UIViewRepresentable {
         webView.backgroundColor = .clear
         webView.navigationDelegate = context.coordinator
         context.coordinator.webView = webView
+        // Map percent so that 120 => bigger, 75 => smaller on observed platforms
+        let initialZoom = max(0.1, min(5.0, 100.0 / max(1.0, zoomPercent)))
+        webView.pageZoom = CGFloat(initialZoom)
         return webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
+        // Apply page zoom and, if changed post-load, recompute anchors
+        // Keep same mapping at update time
+        let targetZoom = CGFloat(max(0.1, min(5.0, 100.0 / max(1.0, zoomPercent))))
+        if uiView.pageZoom != targetZoom {
+            uiView.pageZoom = targetZoom
+            if context.coordinator.anchorsReady {
+                context.coordinator.navigationFinishedSetup(uiView)
+            }
+        }
         // Only reload HTML when it actually changes
         if context.coordinator.lastHTML != html {
             context.coordinator.anchorsReady = false
@@ -112,6 +126,7 @@ struct CuesheetView: View {
     let autoScrollEnabled: Bool
     let forceTopTick: Int
     let stickToTop: Bool
+    let zoomPercent: Double
 
     private var selectionBinding: Binding<Int> {
         Binding<Int>(
@@ -156,7 +171,8 @@ struct CuesheetView: View {
                 autoScrollEnabled: autoScrollEnabled,
                 scrollFraction: computeScrollFraction(),
                 forceTopTick: forceTopTick,
-                stickToTop: stickToTop
+                stickToTop: stickToTop,
+                zoomPercent: zoomPercent
             )
                 .background(Color.white)
                 .cornerRadius(6)
