@@ -191,7 +191,7 @@ extension CuesheetView {
         let start = introPos
         let end = max(introPos, outroPos)
         guard end > start else { return 0 }
-        let t = (playheadNormalized - start) / (end - start)
+        let t = 1.05 * (playheadNormalized - start) / (end - start) // get to the bottom a little faster!
         return min(1.0, max(0.0, t))
     }
 }
