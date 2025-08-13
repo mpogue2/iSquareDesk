@@ -65,7 +65,8 @@ struct PlaylistSlotView: View {
     }
 
     private func rowView(item: PlaylistItem) -> some View {
-        Button(action: {
+        let color = colorForItem(item)
+        return Button(action: {
             print("PlaylistSlotView: slot=\(slotIndex) tapped item #\(item.index) title='\(item.title)' rel='\(item.relativePath)'")
             onSelectItem(item)
         }) {
@@ -77,7 +78,26 @@ struct PlaylistSlotView: View {
             .padding(.vertical, 6)
             .padding(.horizontal, 8)
             .background(item.index % 2 == 0 ? Color(hex: "#F5F5F7") : Color.clear)
+            .foregroundColor(color)
         }
         .buttonStyle(.plain)
+    }
+
+    private func colorForItem(_ item: PlaylistItem) -> Color {
+        var rel = item.relativePath
+        if rel.hasPrefix("/") { rel.removeFirst() }
+        let type = rel.split(separator: "/").first.map { String($0).lowercased() } ?? ""
+        switch type {
+        case "patter":
+            return Color(hex: "#7963FF")
+        case "singing":
+            return Color(hex: "#00AF5C")
+        case "xtras":
+            return Color(hex: "#9C1F00")
+        case "vocals":
+            return Color(hex: "#AB6900")
+        default:
+            return Color(hex: "#9C1F00")
+        }
     }
 }
