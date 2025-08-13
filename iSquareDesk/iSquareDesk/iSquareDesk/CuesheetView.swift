@@ -70,6 +70,10 @@ struct CuesheetView: View {
             HTMLView(html: htmlContent)
                 .background(Color.white)
                 .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.black.opacity(0.2), lineWidth: 1)
+                )
                 .padding(.horizontal, 10)
         }
     }
