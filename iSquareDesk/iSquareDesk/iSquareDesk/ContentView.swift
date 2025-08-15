@@ -1167,6 +1167,8 @@ struct ContentView: View {
                         
                         self.currentSongPath = audioURL.path
                         self.duration = audioProcessor.duration
+                        // Re-apply loop config now that duration and file are known so the engine builds the loop buffer
+                        self.audioProcessor.setLoop(enabled: self.currentSongLoop, startNormalized: self.currentIntroPos, endNormalized: self.currentOutroPos)
                         // Apply tempo mode and values to UI and engine
                         self.tempoIsPercent = song.tempoIsPercent
                         self.audioProcessor.tempoIsPercent = song.tempoIsPercent
