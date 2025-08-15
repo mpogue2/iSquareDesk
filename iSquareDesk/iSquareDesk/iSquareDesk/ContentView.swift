@@ -491,7 +491,7 @@ struct ContentView: View {
                                                     isUserSeeking = editing
                                                     if !editing {
                                                         // User finished interacting with slider - seek to position
-                                                        print("Seeking to: \(seekTime)")
+                                                        
                                                         audioProcessor.seek(to: seekTime)
                                                     }
                                                 }
@@ -506,7 +506,7 @@ struct ContentView: View {
                                             isUserSeeking = true
                                             
                                             // Update seek position and jump to that location
-                                            print("Tap seeking to: \(newTime)")
+                                            
                                             seekTime = newTime
                                             audioProcessor.seek(to: newTime)
                                             // Immediately reflect the new position in UI (for section label)

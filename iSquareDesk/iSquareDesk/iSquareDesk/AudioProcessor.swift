@@ -160,10 +160,7 @@ class AudioProcessor: ObservableObject {
     private var passStartSampleTime: AVAudioFramePosition = 0
     private var passDurationFrames: AVAudioFramePosition = 0
 
-    // Simple debug logger for loop scheduling
-    private func loopLog(_ message: String) {
-        print("🎛️ [Loop] \(message)")
-    }
+    
     
     init() {
         setupAudioSession()
@@ -284,7 +281,6 @@ class AudioProcessor: ObservableObject {
             audioFormat = audioFile.processingFormat
             let calculatedDuration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
             fileLengthFrames = audioFile.length
-            loopLog("Loaded file: duration=\(String(format: "%.3f", calculatedDuration))s, frames=\(audioFile.length)")
             
             // Update @Published property on main thread
             DispatchQueue.main.async {
@@ -304,7 +300,6 @@ class AudioProcessor: ObservableObject {
         
         // If resuming from pause, do NOT reschedule; just resume playback
         if wasPaused {
-            loopLog("Resume from pause; keeping existing schedule")
             playerNode.play()
             wasPaused = false
             
@@ -339,7 +334,6 @@ class AudioProcessor: ObservableObject {
     }
     
     func pause() {
-        loopLog("Pause")
         playerNode.pause()
         
         // Update @Published property on main thread
@@ -354,7 +348,6 @@ class AudioProcessor: ObservableObject {
     }
     
     func stop() {
-        loopLog("Stop and clear schedule")
         playerNode.stop()
         
         // Update @Published properties on main thread
@@ -395,7 +388,6 @@ class AudioProcessor: ObservableObject {
         let endSec = max(0.0, min(end, duration))
         self.loopStart = min(startSec, endSec)
         self.loopEnd = max(startSec, endSec)
-        loopLog("Configure loop: enabled=\(enabled), start=\(String(format: "%.3f", self.loopStart))s, end=\(String(format: "%.3f", self.loopEnd))s")
         rebuildLoopBuffer()
     }
 
@@ -405,18 +397,17 @@ class AudioProcessor: ObservableObject {
             loopBuffer = nil
             return
         }
-        guard loopEnd > loopStart, (loopEnd - loopStart) >= 0.005 else { loopBuffer = nil; loopLog("Loop buffer not built (invalid range)"); return }
+        guard loopEnd > loopStart, (loopEnd - loopStart) >= 0.005 else { loopBuffer = nil; return }
         let sr = audioFormat.sampleRate
         var startFrame = AVAudioFramePosition(loopStart * sr)
         var endFrame = AVAudioFramePosition(loopEnd * sr)
         startFrame = max(AVAudioFramePosition(0), min(startFrame, fileLengthFrames))
         endFrame = max(AVAudioFramePosition(0), min(endFrame, fileLengthFrames))
         let frames64 = max(AVAudioFramePosition(0), endFrame - startFrame)
-        guard frames64 > 0 else { loopBuffer = nil; loopLog("Loop buffer not built (0 frames)"); return }
+        guard frames64 > 0 else { loopBuffer = nil; return }
         let frames = AVAudioFrameCount(frames64)
         guard let buf = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frames) else {
             loopBuffer = nil
-            loopLog("Loop buffer allocation failed (frames=\(frames))")
             return
         }
         buf.frameLength = frames
@@ -430,7 +421,6 @@ class AudioProcessor: ObservableObject {
         }
         applyEdgeRamps(to: buf, rampSampleCount: 128)
         loopBuffer = buf
-        loopLog("Loop buffer built: frames=\(frames), startFrame=\(startFrame), endFrame=\(endFrame)")
     }
 
     /// Apply small linear fades at the start and end of a buffer to reduce edge clicks
@@ -496,8 +486,7 @@ class AudioProcessor: ObservableObject {
     // MARK: - Precise scheduling helpers
     /// Schedule one full LOOP pass (no .loops). Requires prebuilt loopBuffer.
     func scheduleOneLoopPass(at startTime: AVAudioTime? = nil, onComplete: (() -> Void)? = nil) {
-        guard let buffer = loopBuffer else { loopLog("scheduleOneLoopPass: no loopBuffer (not built)"); return }
-        loopLog("scheduleOneLoopPass(at: \(startTime != nil ? "time" : "nil"))")
+        guard let buffer = loopBuffer else { return }
         playerNode.scheduleBuffer(buffer, at: startTime, options: [], completionHandler: {
             if let onComplete = onComplete {
                 DispatchQueue.main.async { onComplete() }
@@ -527,7 +516,6 @@ class AudioProcessor: ObservableObject {
         }
 
         let wasPlaying = isPlaying
-        loopLog("Seek to \(String(format: "%.3f", time))s (wasPlaying=\(wasPlaying))")
         playerNode.stop()
         isPlaying = false
         wasPaused = false
@@ -579,13 +567,11 @@ class AudioProcessor: ObservableObject {
                 // HEAD: play to loop start, then enter full loop pass
                 phase = .headToLoop
                 currentBoundaryFrame = lStart
-                loopLog("Schedule HEAD→LOOP: cur=\(curFrame) → lStart=\(lStart)")
                 scheduleFileSegment(startFrame: curFrame, endFrame: lStart, at: nil, onComplete: { [weak self] in
                     guard let self = self else { return }
                     self.phase = .loopFullPass
                     self.currentBoundaryFrame = lEnd
                     self.nextQueued = false
-                    self.loopLog("HEAD segment completed; entering LOOP pass")
                 })
                 // Pre-queue one full loop pass immediately to ensure seamless entry
                 scheduleOneLoopPass(at: nil, onComplete: { [weak self] in
@@ -594,15 +580,12 @@ class AudioProcessor: ObservableObject {
                     self.phase = .loopFullPass
                     self.currentBoundaryFrame = lEnd
                     self.nextQueued = false
-                    self.loopLog("Loop pass completed; scheduler will decide next")
                 })
-                loopLog("Pre-queued first LOOP pass")
                 nextQueued = true
             } else if curFrame < lEnd {
                 // LOOP remainder: finish to loop end, then scheduler decides
                 phase = .loopRemainder
                 currentBoundaryFrame = lEnd
-                loopLog("Schedule LOOP remainder: cur=\(curFrame) → lEnd=\(lEnd)")
                 scheduleFileSegment(startFrame: curFrame, endFrame: lEnd, at: nil, onComplete: { [weak self] in
                     guard let self = self else { return }
                     // When the remainder finishes, we should already have queued the next item
@@ -610,7 +593,6 @@ class AudioProcessor: ObservableObject {
                     if self.nextQueued == false {
                         // Fallback: schedule based on current toggle immediately (may cause tiny gap)
                         if self.loopEnabled {
-                            self.loopLog("LOOP remainder finished; fallback scheduling NEXT LOOP pass")
                             // Set phase and pass timing since the pass will start immediately
                             if let timing = self.getNodeTiming() {
                                 self.passStartSampleTime = timing.playerTime.sampleTime
@@ -623,21 +605,17 @@ class AudioProcessor: ObservableObject {
                                 self.phase = .loopFullPass
                                 self.currentBoundaryFrame = lEnd
                                 self.nextQueued = false
-                                self.loopLog("Loop pass completed (fallback); remain in loopFullPass")
                             })
                         } else {
-                            self.loopLog("LOOP remainder finished; fallback scheduling EXIT to TAIL")
                             self.scheduleFileSegment(startFrame: lEnd, endFrame: self.fileLengthFrames, at: nil, onComplete: { [weak self] in
                                 guard let self = self else { return }
                                 self.phase = .tailToEnd
                                 self.currentBoundaryFrame = self.fileLengthFrames
                                 self.nextQueued = false
-                                self.loopLog("Now in TAIL to end (fallback)")
                             })
                         }
                         self.nextQueued = true
                     } else {
-                        self.loopLog("LOOP remainder finished; next already queued")
                         self.nextQueued = false
                     }
                 })
@@ -645,7 +623,6 @@ class AudioProcessor: ObservableObject {
                 // TAIL
                 phase = .tailToEnd
                 currentBoundaryFrame = fileLengthFrames
-                loopLog("Schedule TAIL: cur=\(curFrame) → end=\(fileLengthFrames)")
                 scheduleFileSegment(startFrame: curFrame, endFrame: fileLengthFrames, at: nil, onComplete: { [weak self] in
                     self?.handlePlaybackCompletion()
                 })
@@ -654,7 +631,6 @@ class AudioProcessor: ObservableObject {
             // Loop disabled: play to end
             phase = .tailToEnd
             currentBoundaryFrame = fileLengthFrames
-            loopLog("Loop disabled: schedule to end from cur=\(curFrame)")
             scheduleFileSegment(startFrame: curFrame, endFrame: fileLengthFrames, at: nil, onComplete: { [weak self] in
                 self?.handlePlaybackCompletion()
             })
@@ -688,7 +664,7 @@ class AudioProcessor: ObservableObject {
                 // Record the start of a full loop pass in node sample time
                 passStartSampleTime = timing.playerTime.sampleTime
                 passDurationFrames = max(AVAudioFramePosition(0), lEnd - lStart)
-                loopLog("Entered LOOP pass at sampleTime=\(passStartSampleTime), durationFrames=\(passDurationFrames)")
+                
             }
         case .loopRemainder, .loopFullPass:
             // Only act if we have a valid loop region and decoded buffer
@@ -706,30 +682,28 @@ class AudioProcessor: ObservableObject {
                 }
             }
             if let tRem = tRem, !nextQueued && tRem <= loopDecisionWindow {
-                loopLog("Near boundary (phase=\(phase)); tRem=\(String(format: "%.3f", tRem))s, loopEnabled=\(loopEnabled)")
                 if loopEnabled {
                     // Queue next loop pass; estimate when it will start to track next pass timing
                     let remFramesNow: AVAudioFramePosition = phase == .loopFullPass ? max(AVAudioFramePosition(0), passDurationFrames - (timing.playerTime.sampleTime - passStartSampleTime)) : AVAudioFramePosition((tRem * sr).rounded())
                     passStartSampleTime = timing.playerTime.sampleTime + remFramesNow
                     passDurationFrames = max(AVAudioFramePosition(0), lEnd - lStart)
                     let startAt = makeStartTime(framesUntilStart: AVAudioFrameCount(remFramesNow))
-                    loopLog("Queue NEXT LOOP pass (will start at sampleTime=\(passStartSampleTime)); startAt set: \(startAt != nil)")
+                    
                     scheduleOneLoopPass(at: startAt, onComplete: { [weak self] in
                         guard let self = self else { return }
                         self.phase = .loopFullPass
                         self.currentBoundaryFrame = lEnd
                         self.nextQueued = false
-                        self.loopLog("Loop pass completed; remain in loopFullPass")
+                        
                     })
                 } else {
                     // Exit to TAIL
-                    loopLog("Queue EXIT to TAIL at lEnd=\(lEnd) → end=\(fileLengthFrames)")
                     scheduleFileSegment(startFrame: lEnd, endFrame: fileLengthFrames, at: nil, onComplete: { [weak self] in
                         guard let self = self else { return }
                         self.phase = .tailToEnd
                         self.currentBoundaryFrame = self.fileLengthFrames
                         self.nextQueued = false
-                        self.loopLog("Now in TAIL to end")
+                        
                     })
                 }
                 nextQueued = true
