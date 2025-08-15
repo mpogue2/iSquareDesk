@@ -149,6 +149,16 @@ class AudioProcessor: ObservableObject {
     // Guard window (seconds) for near-boundary scheduling decisions
     // Used by future logic to decide when to queue the next pass
     let loopDecisionWindow: TimeInterval = 0.04 // 40 ms
+
+    // Playback scheduling state for gapless looping
+    private enum PlaybackPhase { case none, headToLoop, loopRemainder, loopFullPass, tailToEnd }
+    private var phase: PlaybackPhase = .none
+    private var currentBoundaryFrame: AVAudioFramePosition = 0
+    private var nextQueued: Bool = false
+    private var loopSchedulerTimer: Timer?
+    // Track current pass timing when in a full loop pass (from loopBuffer)
+    private var passStartSampleTime: AVAudioFramePosition = 0
+    private var passDurationFrames: AVAudioFramePosition = 0
     
     init() {
         setupAudioSession()
@@ -297,33 +307,16 @@ class AudioProcessor: ObservableObject {
             }
             startDisplayTimer()
             startLevelTimer()
+            startLoopSchedulerTimer()
             return
         }
 
-        // Fresh play: schedule the file for playback from current position
+        // Fresh play: schedule from current position using HEAD/LOOP/TAIL logic
         if !isPlaying {
             // Track the seek position
             seekOffset = currentTime
             hasJustSeeked = true
-            
-            // Calculate current frame position
-            let sampleRate = audioFormat.sampleRate
-            let currentFramePosition = AVAudioFramePosition(sampleRate * currentTime)
-            let remainingFrames = audioFile.length - currentFramePosition
-            
-            // Only schedule if there are frames left to play
-            if remainingFrames > 0 {
-                audioFile.framePosition = currentFramePosition
-                
-                playerNode.scheduleSegment(audioFile,
-                                          startingFrame: currentFramePosition,
-                                          frameCount: AVAudioFrameCount(remainingFrames),
-                                          at: nil) { [weak self] in
-                    DispatchQueue.main.async {
-                        self?.handlePlaybackCompletion()
-                    }
-                }
-            }
+            scheduleFromCurrentPosition()
         }
         
         playerNode.play()
@@ -335,6 +328,7 @@ class AudioProcessor: ObservableObject {
         
         startDisplayTimer()
         startLevelTimer()
+        startLoopSchedulerTimer()
     }
     
     func pause() {
@@ -348,6 +342,7 @@ class AudioProcessor: ObservableObject {
         stopDisplayTimer()
         startDecayTimer()
         wasPaused = true
+        stopLoopSchedulerTimer()
     }
     
     func stop() {
@@ -364,6 +359,9 @@ class AudioProcessor: ObservableObject {
         wasPaused = false
         stopDisplayTimer()
         startDecayTimer()
+        stopLoopSchedulerTimer()
+        phase = .none
+        nextQueued = false
     }
     
     // MARK: - Loop helpers (Step 1 only; not used yet)
@@ -488,20 +486,28 @@ class AudioProcessor: ObservableObject {
 
     // MARK: - Precise scheduling helpers
     /// Schedule one full LOOP pass (no .loops). Requires prebuilt loopBuffer.
-    func scheduleOneLoopPass(at startTime: AVAudioTime? = nil) {
+    func scheduleOneLoopPass(at startTime: AVAudioTime? = nil, onComplete: (() -> Void)? = nil) {
         guard let buffer = loopBuffer else { return }
-        playerNode.scheduleBuffer(buffer, at: startTime, options: [], completionHandler: nil)
+        playerNode.scheduleBuffer(buffer, at: startTime, options: [], completionHandler: {
+            if let onComplete = onComplete {
+                DispatchQueue.main.async { onComplete() }
+            }
+        })
     }
 
     /// Schedule a file segment [startFrame, endFrame) optionally at a precise start time
-    func scheduleFileSegment(startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition, at startTime: AVAudioTime? = nil) {
+    func scheduleFileSegment(startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition, at startTime: AVAudioTime? = nil, onComplete: (() -> Void)? = nil) {
         guard let audioFile = audioFile else { return }
         let s = max(0, min(startFrame, fileLengthFrames))
         let e = max(0, min(endFrame, fileLengthFrames))
         let frames64 = max(0, e - s)
         guard frames64 > 0 else { return }
         let frames = AVAudioFrameCount(frames64)
-        playerNode.scheduleSegment(audioFile, startingFrame: s, frameCount: frames, at: startTime, completionHandler: nil)
+        playerNode.scheduleSegment(audioFile, startingFrame: s, frameCount: frames, at: startTime, completionHandler: {
+            if let onComplete = onComplete {
+                DispatchQueue.main.async { onComplete() }
+            }
+        })
     }
 
     func seek(to time: TimeInterval) {
@@ -521,9 +527,162 @@ class AudioProcessor: ObservableObject {
 
         if wasPlaying {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-                self?.currentTime = newTime
-                self?.play()
+                guard let self = self else { return }
+                self.currentTime = newTime
+                // Update seek offset so UI time tracks correctly after resume
+                self.seekOffset = newTime
+                self.hasJustSeeked = true
+                // Re-schedule from new position and resume
+                self.scheduleFromCurrentPosition()
+                self.playerNode.play()
+                self.isPlaying = true
+                self.startDisplayTimer()
+                self.startLevelTimer()
+                self.startLoopSchedulerTimer()
             }
+        }
+    }
+
+    // MARK: - Gapless looping core scheduling
+    private func loopStartFrame() -> AVAudioFramePosition {
+        guard let audioFormat = audioFormat else { return 0 }
+        return AVAudioFramePosition(loopStart * audioFormat.sampleRate)
+    }
+    private func loopEndFrame() -> AVAudioFramePosition {
+        guard let audioFormat = audioFormat else { return 0 }
+        return AVAudioFramePosition(loopEnd * audioFormat.sampleRate)
+    }
+
+    private func scheduleFromCurrentPosition() {
+        guard let audioFormat = audioFormat else { return }
+        let sr = audioFormat.sampleRate
+        let curFrame = AVAudioFramePosition(currentTime * sr)
+        let lStart = max(0, min(loopStartFrame(), fileLengthFrames))
+        let lEnd = max(0, min(loopEndFrame(), fileLengthFrames))
+
+        // Reset state for a fresh schedule
+        nextQueued = false
+
+        if loopEnabled, let _ = loopBuffer, lEnd > lStart {
+            if curFrame < lStart {
+                // HEAD: play to loop start, then enter full loop pass
+                phase = .headToLoop
+                currentBoundaryFrame = lStart
+                scheduleFileSegment(startFrame: curFrame, endFrame: lStart, at: nil, onComplete: { [weak self] in
+                    guard let self = self else { return }
+                    self.phase = .loopFullPass
+                    self.currentBoundaryFrame = lEnd
+                    self.nextQueued = false
+                })
+                // Pre-queue one full loop pass immediately to ensure seamless entry
+                scheduleOneLoopPass(at: nil, onComplete: { [weak self] in
+                    guard let self = self else { return }
+                    // After a full pass, by default remain in loopFullPass; scheduler decides what comes next
+                    self.phase = .loopFullPass
+                    self.currentBoundaryFrame = lEnd
+                    self.nextQueued = false
+                })
+                nextQueued = true
+            } else if curFrame < lEnd {
+                // LOOP remainder: finish to loop end, then scheduler decides
+                phase = .loopRemainder
+                currentBoundaryFrame = lEnd
+                scheduleFileSegment(startFrame: curFrame, endFrame: lEnd, at: nil, onComplete: { [weak self] in
+                    guard let self = self else { return }
+                    // When the remainder finishes, we should already have queued the next item
+                    // Phase will be updated by the completion of that queued item, but as a fallback, remain in loopFullPass
+                    if self.nextQueued == false {
+                        self.phase = .loopFullPass
+                        self.currentBoundaryFrame = lEnd
+                    }
+                    self.nextQueued = false
+                })
+            } else {
+                // TAIL
+                phase = .tailToEnd
+                currentBoundaryFrame = fileLengthFrames
+                scheduleFileSegment(startFrame: curFrame, endFrame: fileLengthFrames, at: nil, onComplete: { [weak self] in
+                    self?.handlePlaybackCompletion()
+                })
+            }
+        } else {
+            // Loop disabled: play to end
+            phase = .tailToEnd
+            currentBoundaryFrame = fileLengthFrames
+            scheduleFileSegment(startFrame: curFrame, endFrame: fileLengthFrames, at: nil, onComplete: { [weak self] in
+                self?.handlePlaybackCompletion()
+            })
+        }
+    }
+
+    private func startLoopSchedulerTimer() {
+        stopLoopSchedulerTimer()
+        loopSchedulerTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] _ in
+            self?.loopSchedulerTick()
+        }
+    }
+    private func stopLoopSchedulerTimer() {
+        loopSchedulerTimer?.invalidate()
+        loopSchedulerTimer = nil
+    }
+    private func loopSchedulerTick() {
+        guard isPlaying else { return }
+        guard let timing = getNodeTiming() else { return }
+        let sr = timing.sampleRate
+        let lStart = loopStartFrame()
+        let lEnd = loopEndFrame()
+
+        switch phase {
+        case .headToLoop:
+            if let cur = currentSourceFrame(), cur >= lStart {
+                // We’ve crossed into the loop buffer that was pre-queued
+                phase = .loopFullPass
+                currentBoundaryFrame = lEnd
+                nextQueued = false
+                // Record the start of a full loop pass in node sample time
+                passStartSampleTime = timing.playerTime.sampleTime
+                passDurationFrames = max(0, lEnd - lStart)
+            }
+        case .loopRemainder, .loopFullPass:
+            // Only act if we have a valid loop
+            guard loopEnabled, loopBuffer != nil, lEnd > lStart else { return }
+            // Determine remaining time to boundary depending on phase
+            var tRem: Double? = nil
+            if phase == .loopFullPass {
+                // Use node sample time relative to the start of this pass
+                let elapsedFrames = max(0, timing.playerTime.sampleTime - passStartSampleTime)
+                let remFrames = max<AVAudioFramePosition>(0, passDurationFrames - elapsedFrames)
+                tRem = Double(remFrames) / sr
+            } else {
+                if let remFrames = framesRemaining(to: lEnd) {
+                    tRem = Double(remFrames) / sr
+                }
+            }
+            if let tRem = tRem, !nextQueued && tRem <= loopDecisionWindow {
+                if loopEnabled {
+                    // Queue next loop pass; estimate when it will start to track next pass timing
+                    let remFramesNow: AVAudioFramePosition = phase == .loopFullPass ? max(0, passDurationFrames - (timing.playerTime.sampleTime - passStartSampleTime)) : AVAudioFramePosition((tRem * sr).rounded())
+                    passStartSampleTime = timing.playerTime.sampleTime + remFramesNow
+                    passDurationFrames = max(0, lEnd - lStart)
+                    scheduleOneLoopPass(at: nil, onComplete: { [weak self] in
+                        guard let self = self else { return }
+                        self.phase = .loopFullPass
+                        self.currentBoundaryFrame = lEnd
+                        self.nextQueued = false
+                    })
+                } else {
+                    // Exit to TAIL
+                    scheduleFileSegment(startFrame: lEnd, endFrame: fileLengthFrames, at: nil, onComplete: { [weak self] in
+                        guard let self = self else { return }
+                        self.phase = .tailToEnd
+                        self.currentBoundaryFrame = self.fileLengthFrames
+                        self.nextQueued = false
+                    })
+                }
+                nextQueued = true
+            }
+        case .tailToEnd, .none:
+            break
         }
     }
     

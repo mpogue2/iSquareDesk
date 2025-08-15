@@ -941,7 +941,8 @@ struct ContentView: View {
                 seekTime = time
                 
                 // Check for loop detection
-                if currentSongLoop && audioProcessor.isPlaying && duration > 0 {
+                // Disable UI-driven loop seek when engine-level looping is configured
+                if currentSongLoop && audioProcessor.isPlaying && duration > 0 && !audioProcessor.loopEnabled {
                     let normalizedTime = Float(time / duration)
                     
                     // If we've reached or passed the outro position, jump to intro position
@@ -967,6 +968,15 @@ struct ContentView: View {
         
         .onChange(of: forceMono) { _, newValue in
             audioProcessor.forceMono = newValue
+        }
+        .onChange(of: currentSongLoop) { _, newValue in
+            audioProcessor.setLoop(enabled: newValue, startNormalized: currentIntroPos, endNormalized: currentOutroPos)
+        }
+        .onChange(of: currentIntroPos) { _, newValue in
+            audioProcessor.setLoop(enabled: currentSongLoop, startNormalized: newValue, endNormalized: currentOutroPos)
+        }
+        .onChange(of: currentOutroPos) { _, newValue in
+            audioProcessor.setLoop(enabled: currentSongLoop, startNormalized: currentIntroPos, endNormalized: newValue)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ForceMonoChanged"))) { _ in
             audioProcessor.forceMono = forceMono
@@ -1126,6 +1136,8 @@ struct ContentView: View {
         }
         currentIntroPos = song.introPos
         currentOutroPos = song.outroPos
+        // Configure engine-level loop with normalized positions
+        audioProcessor.setLoop(enabled: currentSongLoop, startNormalized: currentIntroPos, endNormalized: currentOutroPos)
         
         // Move heavy file loading to background thread
         DispatchQueue.global(qos: .userInitiated).async { [self] in
