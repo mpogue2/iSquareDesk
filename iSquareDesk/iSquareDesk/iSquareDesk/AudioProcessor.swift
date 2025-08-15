@@ -133,6 +133,22 @@ class AudioProcessor: ObservableObject {
             updateEQBand(2, gain: trebleBoost) // Treble band
         }
     }
+
+    // MARK: - Looping helpers (Step 1: helpers only, no behavior change)
+    // Public loop configuration (in seconds, absolute track time)
+    @Published var loopEnabled: Bool = false
+    @Published var loopStart: TimeInterval = 0.0
+    @Published var loopEnd: TimeInterval = 0.0
+    
+    // Internal decoded buffer for one full LOOP pass [loopStart, loopEnd)
+    private var loopBuffer: AVAudioPCMBuffer?
+    
+    // Cached file length in frames for precise scheduling
+    private var fileLengthFrames: AVAudioFramePosition = 0
+    
+    // Guard window (seconds) for near-boundary scheduling decisions
+    // Used by future logic to decide when to queue the next pass
+    let loopDecisionWindow: TimeInterval = 0.04 // 40 ms
     
     init() {
         setupAudioSession()
@@ -252,6 +268,7 @@ class AudioProcessor: ObservableObject {
             
             audioFormat = audioFile.processingFormat
             let calculatedDuration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+            fileLengthFrames = audioFile.length
             
             // Update @Published property on main thread
             DispatchQueue.main.async {
@@ -349,6 +366,144 @@ class AudioProcessor: ObservableObject {
         startDecayTimer()
     }
     
+    // MARK: - Loop helpers (Step 1 only; not used yet)
+    /// Configure loop using normalized positions (0.0...1.0 of track)
+    func setLoop(enabled: Bool, startNormalized: Float, endNormalized: Float) {
+        self.loopEnabled = enabled
+        guard duration > 0 else {
+            self.loopStart = 0
+            self.loopEnd = 0
+            self.loopBuffer = nil
+            return
+        }
+        let s = max(0.0, min(1.0, Double(startNormalized))) * duration
+        let e = max(0.0, min(1.0, Double(endNormalized))) * duration
+        setLoopSeconds(enabled: enabled, start: min(s, e), end: max(s, e))
+    }
+
+    /// Configure loop using absolute seconds within the current track
+    func setLoopSeconds(enabled: Bool, start: TimeInterval, end: TimeInterval) {
+        self.loopEnabled = enabled
+        let startSec = max(0.0, min(start, duration))
+        let endSec = max(0.0, min(end, duration))
+        self.loopStart = min(startSec, endSec)
+        self.loopEnd = max(startSec, endSec)
+        rebuildLoopBuffer()
+    }
+
+    /// Build or rebuild the decoded buffer covering [loopStart, loopEnd)
+    private func rebuildLoopBuffer() {
+        guard let audioFile = audioFile, let audioFormat = audioFormat else {
+            loopBuffer = nil
+            return
+        }
+        guard loopEnd > loopStart, (loopEnd - loopStart) >= 0.005 else { // at least 5ms
+            loopBuffer = nil
+            return
+        }
+        let sr = audioFormat.sampleRate
+        var startFrame = AVAudioFramePosition(loopStart * sr)
+        var endFrame = AVAudioFramePosition(loopEnd * sr)
+        startFrame = max(0, min(startFrame, fileLengthFrames))
+        endFrame = max(0, min(endFrame, fileLengthFrames))
+        let frames64 = max(0, endFrame - startFrame)
+        guard frames64 > 0 else { loopBuffer = nil; return }
+        let frames = AVAudioFrameCount(frames64)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: audioFormat, frameCapacity: frames) else {
+            loopBuffer = nil
+            return
+        }
+        buf.frameLength = frames
+        do {
+            audioFile.framePosition = startFrame
+            try audioFile.read(into: buf, frameCount: frames)
+        } catch {
+            print("Failed reading loop buffer: \(error)")
+            loopBuffer = nil
+            return
+        }
+        applyEdgeRamps(to: buf, rampSampleCount: 128)
+        loopBuffer = buf
+    }
+
+    /// Apply small linear fades at the start and end of a buffer to reduce edge clicks
+    private func applyEdgeRamps(to buffer: AVAudioPCMBuffer, rampSampleCount: Int) {
+        let total = Int(buffer.frameLength)
+        let n = max(0, min(rampSampleCount, total / 2))
+        guard n > 0 else { return }
+        let channels = Int(buffer.format.channelCount)
+        if let fdata = buffer.floatChannelData {
+            for ch in 0..<channels {
+                let p = fdata[ch]
+                // Fade in
+                var i = 0
+                while i < n {
+                    let g = Float(i) / Float(n)
+                    p[i] *= g
+                    i += 1
+                }
+                // Fade out
+                i = 0
+                while i < n {
+                    let idx = total - n + i
+                    let g = 1.0 - Float(i) / Float(n)
+                    p[idx] *= g
+                    i += 1
+                }
+            }
+        }
+    }
+
+    // MARK: - Timing helpers
+    /// Returns timing info from the node’s render clock
+    func getNodeTiming() -> (sampleRate: Double, nodeTime: AVAudioTime, playerTime: AVAudioTime)? {
+        guard let nodeTime = playerNode.lastRenderTime,
+              let playerTime = playerNode.playerTime(forNodeTime: nodeTime),
+              let audioFormat = audioFormat else { return nil }
+        return (sampleRate: audioFormat.sampleRate, nodeTime: nodeTime, playerTime: playerTime)
+    }
+
+    /// Current absolute source frame position in the file (best-effort)
+    func currentSourceFrame() -> AVAudioFramePosition? {
+        guard let timing = getNodeTiming() else { return nil }
+        let elapsedFrames = AVAudioFramePosition(timing.playerTime.sampleTime)
+        let offsetFrames = AVAudioFramePosition(seekOffset * timing.sampleRate)
+        let cur = max(0, min(offsetFrames + elapsedFrames, fileLengthFrames))
+        return cur
+    }
+
+    /// Frames remaining to the target absolute frame from current position
+    func framesRemaining(to targetFrame: AVAudioFramePosition) -> AVAudioFrameCount? {
+        guard let cur = currentSourceFrame() else { return nil }
+        let remain64 = max(0, targetFrame - cur)
+        return AVAudioFrameCount(remain64)
+    }
+
+    /// Create an AVAudioTime that starts after the given frame offset from now
+    func makeStartTime(framesUntilStart: AVAudioFrameCount) -> AVAudioTime? {
+        guard let timing = getNodeTiming() else { return nil }
+        let startSampleTime = timing.playerTime.sampleTime + AVAudioFramePosition(framesUntilStart)
+        return AVAudioTime(sampleTime: startSampleTime, atRate: timing.sampleRate)
+    }
+
+    // MARK: - Precise scheduling helpers
+    /// Schedule one full LOOP pass (no .loops). Requires prebuilt loopBuffer.
+    func scheduleOneLoopPass(at startTime: AVAudioTime? = nil) {
+        guard let buffer = loopBuffer else { return }
+        playerNode.scheduleBuffer(buffer, at: startTime, options: [], completionHandler: nil)
+    }
+
+    /// Schedule a file segment [startFrame, endFrame) optionally at a precise start time
+    func scheduleFileSegment(startFrame: AVAudioFramePosition, endFrame: AVAudioFramePosition, at startTime: AVAudioTime? = nil) {
+        guard let audioFile = audioFile else { return }
+        let s = max(0, min(startFrame, fileLengthFrames))
+        let e = max(0, min(endFrame, fileLengthFrames))
+        let frames64 = max(0, e - s)
+        guard frames64 > 0 else { return }
+        let frames = AVAudioFrameCount(frames64)
+        playerNode.scheduleSegment(audioFile, startingFrame: s, frameCount: frames, at: startTime, completionHandler: nil)
+    }
+
     func seek(to time: TimeInterval) {
         guard audioFile != nil else {
             print("Seek failed: no audio file")
