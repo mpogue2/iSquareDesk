@@ -57,7 +57,7 @@ class SongDatabaseManager {
             dbQueue = try DatabaseQueue(path: dbPath, configuration: config)
 // Connected to database
         } catch {
-            print("❌ Failed to connect to database: \(error)")
+            // print("❌ Failed to connect to database: \(error)")
             dbQueue = nil
         }
     }
