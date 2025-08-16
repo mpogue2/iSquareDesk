@@ -287,6 +287,24 @@ struct ContentView: View {
             return tcmp == .orderedAscending
         }
     }
+
+    // Purge UI and in-memory caches when switching music folder
+    private func purgeCachesAndUI() {
+        // Clear song list and selection-related state
+        self.songs = []
+        self.currentSongTitle = ""
+        self.currentSongPath = ""
+        self.isLoadingSongs = false
+        self.isLoadingCurrentSong = false
+        // Reset cuesheet UI
+        self.cuesheetFiles = []
+        self.cuesheetSelectedIndex = nil
+        self.cuesheetHTML = "<html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body style=\"font-family: -apple-system, Helvetica; font-size: 18px; color: #111;\"><p>Select a cuesheet from the menu above.</p></body></html>"
+        // Reset audio-related displayed values
+        self.duration = 0
+        self.currentTime = 0
+        self.seekTime = 0
+    }
     
     // Reserve vertical space for the title to avoid layout shift on first load
     private var displayedSongTitle: String {
@@ -908,6 +926,7 @@ struct ContentView: View {
         }
         .onChange(of: musicFolder) { _, newMusicFolder in
             establishSecurityScopedAccess {
+                purgeCachesAndUI()
                 songDatabase = SongDatabaseManager(musicFolderPath: newMusicFolder)
                 databaseAvailable = (songDatabase?.getCacheStats().loaded == true)
                 loadSongs()
@@ -919,14 +938,22 @@ struct ContentView: View {
         }
         .onChange(of: musicFolderURL) { _, _ in
             establishSecurityScopedAccess {
+                purgeCachesAndUI()
+                songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
+                databaseAvailable = (songDatabase?.getCacheStats().loaded == true)
                 loadSongs()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshSongList"))) { _ in
             establishSecurityScopedAccess {
+                purgeCachesAndUI()
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
                 databaseAvailable = (songDatabase?.getCacheStats().loaded == true)
                 loadSongs()
+                // Also rebuild cuesheet index on explicit refresh
+                let matcher = CuesheetMatcher(musicRoot: URL(fileURLWithPath: musicFolder))
+                matcher.buildPathStackCuesheets()
+                self.cuesheetMatcher = matcher
             }
         }
         .onChange(of: cuesheetSelectedIndex) { _, newIndex in
