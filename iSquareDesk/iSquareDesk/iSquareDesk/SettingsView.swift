@@ -129,7 +129,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("1.0.0")
+                        Text(appVersionString())
                             .foregroundColor(.secondary)
                     }
                     
@@ -165,6 +165,23 @@ struct SettingsView: View {
         .onAppear {
             // Initialize text from stored value
             cuesheetZoomText = String(format: "%.0f", cuesheetZoomPercent)
+        }
+    }
+    
+    // MARK: - Version helper
+    private func appVersionString() -> String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String
+        let build = info?["CFBundleVersion"] as? String
+        switch (short, build) {
+        case let (s?, b?) where !s.isEmpty && !b.isEmpty:
+            return "\(s) build \(b)"
+        case let (s?, _):
+            return s
+        case let (_, b?):
+            return "build \(b)"
+        default:
+            return "-"
         }
     }
     
