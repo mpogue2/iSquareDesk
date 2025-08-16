@@ -1502,7 +1502,9 @@ struct ContentView: View {
                     
                     let fileExtension = file.pathExtension.lowercased()
                     if fileExtension == "mp3" || fileExtension == "m4a" {
-                        let type = relativePath.components(separatedBy: "/").first ?? "unknown"
+                        // Derive type from top-level folder; if file is at root, mark as unknown
+                        let pathParts = relativePath.split(separator: "/")
+                        let type = pathParts.count > 1 ? String(pathParts.first!) : "unknown"
                         let filenameWithoutExtension = file.lastPathComponent.replacingOccurrences(of: ".\(fileExtension)", with: "")
                         
                         let parsed = parseFilename(filenameWithoutExtension)
