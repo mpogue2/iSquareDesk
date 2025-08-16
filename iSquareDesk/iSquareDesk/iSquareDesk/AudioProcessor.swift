@@ -805,7 +805,6 @@ class AudioProcessor: ObservableObject {
     private func updateEQBand(_ bandIndex: Int, gain: Float) {
         guard bandIndex < eqNode.bands.count else { return }
         eqNode.bands[bandIndex].gain = gain
-        print("EQ Band \(bandIndex) gain set to \(gain) dB")
     }
     
     private func setupAudioLevelMonitoring() {
