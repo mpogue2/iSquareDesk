@@ -1116,11 +1116,8 @@ struct ContentView: View {
         pitch = Double(song.pitch)
         audioProcessor.pitchSemitones = Float(song.pitch)
         
-        // Check if this is a singing call (but if DB is unavailable, use patter coloring)
+        // Check if this is a singing call
         isSingingCall = (song.type == "singing" || song.type == "vocals")
-        if !databaseAvailable {
-            isSingingCall = false
-        }
         didAutoSwitchOnThisSong = false
         
         // Check if this is a patter song
