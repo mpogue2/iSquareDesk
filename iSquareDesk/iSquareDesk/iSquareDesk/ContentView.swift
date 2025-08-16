@@ -304,6 +304,14 @@ struct ContentView: View {
         self.duration = 0
         self.currentTime = 0
         self.seekTime = 0
+        // Reset all playlist slots to default empty state
+        let empty = PlaylistData(name: "Untitled Playlist", items: [])
+        self.playlist1 = empty
+        self.playlist2 = empty
+        self.playlist3 = empty
+        self.playlistSlot1Path = ""
+        self.playlistSlot2Path = ""
+        self.playlistSlot3Path = ""
     }
     
     // Reserve vertical space for the title to avoid layout shift on first load
