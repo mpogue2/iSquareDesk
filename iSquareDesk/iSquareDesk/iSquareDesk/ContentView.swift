@@ -1143,6 +1143,11 @@ struct ContentView: View {
         }
         currentIntroPos = song.introPos
         currentOutroPos = song.outroPos
+        // If no database is available, and this is a patter song, force default loop region
+        if !databaseAvailable && song.type == "patter" {
+            currentIntroPos = 0.05
+            currentOutroPos = 0.95
+        }
         // Configure engine-level loop with normalized positions
         audioProcessor.setLoop(enabled: currentSongLoop, startNormalized: currentIntroPos, endNormalized: currentOutroPos)
         
