@@ -213,6 +213,7 @@ struct ContentView: View {
     @State private var clockTime: String = "12:00"
     @StateObject private var audioProcessor = AudioProcessor()
     @State private var songDatabase: SongDatabaseManager?
+    @State private var databaseAvailable: Bool = false
     @State private var currentSongPath: String = ""
     @State private var isUserSeeking: Bool = false
     @State private var securityScopedURL: URL?
@@ -886,6 +887,7 @@ struct ContentView: View {
         .onAppear {
             establishSecurityScopedAccess { [self] in
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
+                databaseAvailable = (songDatabase?.getCacheStats().loaded == true)
                 loadSongs()
                 // Build cuesheet index
                 let matcher = CuesheetMatcher(musicRoot: URL(fileURLWithPath: musicFolder))
@@ -907,6 +909,7 @@ struct ContentView: View {
         .onChange(of: musicFolder) { _, newMusicFolder in
             establishSecurityScopedAccess {
                 songDatabase = SongDatabaseManager(musicFolderPath: newMusicFolder)
+                databaseAvailable = (songDatabase?.getCacheStats().loaded == true)
                 loadSongs()
                 // Rebuild cuesheet index when folder changes
                 let matcher = CuesheetMatcher(musicRoot: URL(fileURLWithPath: newMusicFolder))
@@ -922,6 +925,7 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshSongList"))) { _ in
             establishSecurityScopedAccess {
                 songDatabase = SongDatabaseManager(musicFolderPath: musicFolder)
+                databaseAvailable = (songDatabase?.getCacheStats().loaded == true)
                 loadSongs()
             }
         }
@@ -1112,8 +1116,11 @@ struct ContentView: View {
         pitch = Double(song.pitch)
         audioProcessor.pitchSemitones = Float(song.pitch)
         
-        // Check if this is a singing call
+        // Check if this is a singing call (but if DB is unavailable, use patter coloring)
         isSingingCall = (song.type == "singing" || song.type == "vocals")
+        if !databaseAvailable {
+            isSingingCall = false
+        }
         didAutoSwitchOnThisSong = false
         
         // Check if this is a patter song
@@ -1174,6 +1181,21 @@ struct ContentView: View {
                         self.audioProcessor.tempoIsPercent = song.tempoIsPercent
                         self.tempo = Double(song.tempo)
                         self.audioProcessor.tempoBPM = Float(song.tempo)
+                        // If database not available, force neutral pitch/tempo/EQ at load time
+                        if !self.databaseAvailable {
+                            self.pitch = 0
+                            self.audioProcessor.pitchSemitones = 0
+                            self.tempoIsPercent = false
+                            self.audioProcessor.tempoIsPercent = false
+                            self.tempo = 125
+                            self.audioProcessor.tempoBPM = 125
+                            self.bass = 0
+                            self.mid = 0
+                            self.treble = 0
+                            self.audioProcessor.bassBoost = 0
+                            self.audioProcessor.midBoost = 0
+                            self.audioProcessor.trebleBoost = 0
+                        }
                         self.isLoadingCurrentSong = false // Enable play/stop buttons
                     }
                     // Also update cuesheet matches (on background)
@@ -1203,7 +1225,7 @@ struct ContentView: View {
             }
             return
         }
-        // Determine DB last_cuesheet for this song
+        // Determine DB last_cuesheet for this song (if database available)
         let relativePath: String = {
             let full = songURL.path
             let root = self.musicFolder.hasSuffix("/") ? self.musicFolder : self.musicFolder + "/"
@@ -1212,7 +1234,12 @@ struct ContentView: View {
             }
             return songURL.lastPathComponent
         }()
-        let last = self.songDatabase?.getLastCuesheet(for: relativePath)
+        let last: String? = {
+            if databaseAvailable {
+                return self.songDatabase?.getLastCuesheet(for: relativePath)
+            }
+            return nil
+        }()
         let res = matcher.loadCuesheets(songFile: songURL, songType: songType, lastCuesheetAbsolutePath: last)
         DispatchQueue.main.async {
             self.cuesheetFiles = res.items
@@ -1352,16 +1379,7 @@ struct ContentView: View {
 
     // Persist a newly selected music folder with a (security-scoped on Mac) bookmark
     func persistSelectedMusicFolder(_ url: URL) {
-        // Verify expected structure (.squaredesk exists)
-        let fileManager = FileManager.default
-        var isDirectory: ObjCBool = false
-        let squaredeskURL = url.appendingPathComponent(".squaredesk")
-        guard fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
-            print("Selected folder missing .squaredesk; ignoring selection")
-            return
-        }
-
-        // Start access and create bookmark
+        // Start access and create bookmark (allow folders without .squaredesk)
         let started = url.startAccessingSecurityScopedResource()
         defer { if started { /* Keep access open for session */ } }
 

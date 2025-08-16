@@ -189,36 +189,25 @@ struct SettingsView: View {
             return
         }
         
-        // Check if the folder contains a .squaredesk subfolder
-        let squaredeskURL = url.appendingPathComponent(".squaredesk")
-        
-        var isDirectory: ObjCBool = false
-        if fileManager.fileExists(atPath: squaredeskURL.path, isDirectory: &isDirectory) && isDirectory.boolValue {
-            // Store bookmark for persistent access
-            do {
-                var options: URL.BookmarkCreationOptions = []
-                #if targetEnvironment(macCatalyst)
-                options.insert(.withSecurityScope)
-                options.insert(.securityScopeAllowOnlyReadAccess)
-                #endif
-                let bookmarkData = try url.bookmarkData(options: options, includingResourceValuesForKeys: nil, relativeTo: nil)
-                musicFolderURL = bookmarkData.base64EncodedString()
-            } catch {
-                print("Failed to create bookmark: \(error)")
-            }
-            
-            // Update the music folder path to the parent folder that contains .squaredesk
-            musicFolderPath = url.path
-            alertMessage = "Music folder updated successfully! The song list will refresh."
-            showingAlert = true
-            
-            // Post notification to refresh song list
-            NotificationCenter.default.post(name: NSNotification.Name("RefreshSongList"), object: nil)
-        } else {
-            url.stopAccessingSecurityScopedResource()
-            alertMessage = "Selected folder must contain a '.squaredesk' subfolder."
-            showingAlert = true
+        // Accept any folder (no .squaredesk required). Store bookmark for persistent access
+        do {
+            var options: URL.BookmarkCreationOptions = []
+            #if targetEnvironment(macCatalyst)
+            options.insert(.withSecurityScope)
+            options.insert(.securityScopeAllowOnlyReadAccess)
+            #endif
+            let bookmarkData = try url.bookmarkData(options: options, includingResourceValuesForKeys: nil, relativeTo: nil)
+            musicFolderURL = bookmarkData.base64EncodedString()
+        } catch {
+            print("Failed to create bookmark: \(error)")
         }
+        
+        musicFolderPath = url.path
+        alertMessage = "Music folder updated successfully! The song list will refresh."
+        showingAlert = true
+        
+        // Post notification to refresh song list
+        NotificationCenter.default.post(name: NSNotification.Name("RefreshSongList"), object: nil)
     }
 }
 
